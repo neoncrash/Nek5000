@@ -253,10 +253,10 @@ c-----------------------------------------------------------------------
 
       call cmult(residual,c_sub_e,nxyz*nelt)
 
-      if (maxdiff .ne. 0) then
-         const=1.0/maxdiff
-         call cmult(residual,const,nxyz*nelt)
-      endif
+c      if (maxdiff .ne. 0) then
+c         const=1.0/!place normalization here
+c         call cmult(residual,const,nxyz*nelt)
+c      endif
 
       return
       end
