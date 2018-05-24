@@ -173,95 +173,27 @@ C> Convective volume terms formed and differentiated^T here
       subroutine convective_cmt(e,eq)
 ! JH081916 convective flux divergence integrated in weak form and
 !          placed in res1.
+! JH052418 convective flux divergence integrated in strong/ultraweak form and
+!          placed in res1.
       include 'SIZE'
       include 'CMTDATA'
+      include 'GEOM'
       integer e,eq
 
-      n=3*lxd*lyd*lzd
+      n=3*lx1*ly1*lz1
 
       call rzero(convh,n)
-      if (lxd.gt.lx1) then
-         call evaluate_dealiased_conv_h(e,eq)
-         call copy(totalh,convh,n)
-         call flux_div_integral_dealiased(e,eq)
-      else
-         call evaluate_aliased_conv_h(e,eq)
-         call copy(totalh,convh,n)
-         call flux_div_integral_aliased(e,eq)
-      endif
+      call evaluate_aliased_conv_h(e,eq)
+      call contravariant_flux(totalh,convh,rx(1,1,e),1)
+
+      call fluxdiv_aliased_chain(e,eq)
 
       return
       end
 C> @}
 
-C> \ingroup convhvol
-C> @{
-C> Convective pointwise flux function \f$\mathbf{H}^c\f$ on fine grid.
-      subroutine evaluate_dealiased_conv_h(e,eq)
-! computed as products between primitive variables and conserved variables.
-! if you want to write rho u_i u_j as (rho u_i) (rho u_j) (rho^{-1}), this
-! is the place to do it
-      include  'SIZE'
-      include  'SOLN'
-      include  'DEALIAS'
-      include  'CMTDATA'
-      include  'INPUT'
-     
-      integer  e,eq
-
-      parameter (ldd=lxd*lyd*lzd)
-      common /ctmp1/ ju1(ldd),ju2(ldd)!,ur(ldd),us(ldd),ud(ldd),tu(ldd)
-      real ju1,ju2
-
-      n=lxd*lyd*lzd
-
-      if (eq .eq. 1) then ! convective flux of mass=rho u_j=U_{j+1}
-
-         do j=1,ldim
-            call intp_rstd(convh(1,j),u(1,1,1,eq+j,e),lx1,lxd,if3d,0)
-         enddo
-
-      else
-
-c To be consistent with momentum equation, for mass balance flux vector is 
-c computed by multiplying rho by u_j
-         call intp_rstd(ju1,phig(1,1,1,e),lx1,lxd,if3d,0)
-         call intp_rstd(ju2,pr(1,1,1,e),lx1,lxd,if3d,0)
-
-         if (eq .lt. 5) then ! self-advection of rho u_i by rho u_i u_j
-
-            call intp_rstd(convh(1,1),u(1,1,1,eq,e),lx1,lxd,if3d,0)
-            do j=2,ldim
-               call copy(convh(1,j),convh(1,1),n)
-            enddo
-            call col2(convh(1,1),vxd(1,1,1,e),n)
-            call col2(convh(1,2),vyd(1,1,1,e),n)
-            if (if3d) call col2(convh(1,3),vzd(1,1,1,e),n)
-            call add2col2(convh(1,eq-1),ju1,ju2,n)
-
-         elseif (eq .eq. 5) then
-
-            call intp_rstd(convh(1,1),u(1,1,1,eq,e),lx1,lxd,if3d,0)
-            call add2col2(convh(1,1),ju1,ju2,n)
-            do j=2,ldim
-               call copy(convh(1,j),convh(1,1),n)
-            enddo
-            call col2(convh(1,1),vxd(1,1,1,e),n)
-            call col2(convh(1,2),vyd(1,1,1,e),n)
-            call col2(convh(1,3),vzd(1,1,1,e),n)
-
-         else
-            if(nio.eq.0) write(6,*) 'eq=',eq,'really must be <= 5'
-            if(nio.eq.0) write(6,*) 'aborting in evaluate_conv_h'
-            call exitt
-         endif
-
-      endif
-     
-      return
-      end
-
       subroutine evaluate_aliased_conv_h(e,eq)
+! JH082418 Unstable. not long for this world
 ! computed as products between primitive variables and conserved variables.
 ! if you want to write rho u_i u_j as (rho u_i) (rho u_j) (rho^{-1}), this
 ! is the place to do it
@@ -271,12 +203,12 @@ c computed by multiplying rho by u_j
       include  'CMTDATA'
       include  'INPUT'
 
-      parameter (ldd=lxd*lyd*lzd)
+      parameter (ldd=lx1*ly1*lz1)
       common /ctmp1/ ju1(ldd),ju2(ldd)!,ur(ldd),us(ldd),ud(ldd),tu(ldd)
       real ju1,ju2
       integer  e,eq
 
-      n=lxd*lyd*lzd
+      n=lx1*ly1*lz1
 
       call copy(ju1,phig(1,1,1,e),n)
       call copy(ju2,pr(1,1,1,e),n)
@@ -287,9 +219,9 @@ c computed by multiplying rho by u_j
          do j=2,ldim
             call copy(convh(1,j),convh(1,1),n)
          enddo
-         call col2(convh(1,1),vxd(1,1,1,e),n)
-         call col2(convh(1,2),vyd(1,1,1,e),n)
-         if (if3d) call col2(convh(1,3),vzd(1,1,1,e),n)
+         call col2(convh(1,1),vx(1,1,1,e),n)
+         call col2(convh(1,2),vy(1,1,1,e),n)
+         if (if3d) call col2(convh(1,3),vz(1,1,1,e),n)
          if(eq. gt. 1) call add2col2(convh(1,eq-1),ju1,ju2,n)
 
       elseif (eq .eq. 5) then
@@ -299,9 +231,9 @@ c computed by multiplying rho by u_j
          do j=2,ldim
             call copy(convh(1,j),convh(1,1),n)
          enddo
-         call col2(convh(1,1),vxd(1,1,1,e),n)
-         call col2(convh(1,2),vyd(1,1,1,e),n)
-         call col2(convh(1,3),vzd(1,1,1,e),n)
+         call col2(convh(1,1),vx(1,1,1,e),n)
+         call col2(convh(1,2),vy(1,1,1,e),n)
+         call col2(convh(1,3),vz(1,1,1,e),n)
 
       else
          if(nio.eq.0) write(6,*) 'eq=',eq,'really must be <= 5'
@@ -316,7 +248,11 @@ C> @}
 C> \ingroup convhvol
 C> @{
 C> \f$(\nabla v)\cdot \mathbf{H}^c=\mathcal{I}^{\intercal}\mathbf{D}^{\intercal}\cdots\f$ for equation eq, element e
-      subroutine flux_div_integral_dealiased(e,eq)
+      subroutine fluxdiv_dealiased_weak_chain(e,eq)
+! JH082418. Formerly flux_div_integral_dealiased. Keep this for simpler
+!           conservation laws on particularly simple meshes.
+!           totalh: correctly formed flux on the Gauss-Legendre (GL) points
+!           rx:     chain-rule nx1 metrics intp'ed to GL point x GL weights
       include  'SIZE'
       include  'INPUT'
       include  'GEOM'
@@ -377,7 +313,12 @@ C> \f$(\nabla v)\cdot \mathbf{H}^c=\mathcal{I}^{\intercal}\mathbf{D}^{\intercal}
 
 C> @}
 
-      subroutine flux_div_integral_aliased(e,eq)
+!-----------------------------------------------------------------------
+
+      subroutine fluxdiv_chain(e,eq)
+! JH082418. Formerly flux_div_integral_aliased. Keep this for...linear
+!           problems on Cartesian meshes? Not long for this world; scalar
+!           DG in nek5000 is probably 100 times better anyway
       include  'SIZE'
       include  'INPUT'
       include  'GEOM'
@@ -434,6 +375,36 @@ C> @}
       end
 
 !-----------------------------------------------------------------------
+
+      subroutine contravariant_flux(frst,fxyz,ja,nel)
+      include 'SIZE'
+      integer e
+      real ja(nx1*ny1*nz1,ldim*ldim,nel)
+      real frst(nx1*ny1*nz1,ldim,nel)
+      real fxyz(nx1*ny1*nz1,ldim,nel)
+      parameter (l11=lx1*ly1*lz1)
+      common /ctmp1/ ftmp(l11,ldim)
+! JH082418 transform to reference element via contravariant metrics
+
+      nxyz=lx1*ly1*lz1
+      nxyz3=ldim*nxyz
+      do e=1,nel
+         call rzero(ftmp,nxyz3)
+         j0=0
+         do j=1,ldim    ! rst
+            do i=1,ldim ! xyz
+               j0=j0+1
+               call addcol3(ftmp(1,j),ja(1,j0,e),fxyz(1,i,e),nxyz)
+            enddo
+         enddo
+         call copy(frst(1,1,e),ftmp,nxyz3)
+      enddo
+
+      return
+      end
+
+!-----------------------------------------------------------------------
+
       subroutine compute_forcing(e,eq_num)
       include  'SIZE'
       include  'INPUT'

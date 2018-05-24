@@ -130,14 +130,7 @@ C> Store it in res1
       call compute_mesh_h(meshh,xm1,ym1,zm1)
       call compute_grid_h(gridh,xm1,ym1,zm1)
 
-      if (lxd.gt.lx1) then
-         call set_dealias_face
-      else
-         call set_alias_rx(istep)
-      endif
-
-!     call set_dealias_rx ! done in set_convect_cons,
-! JH113015                ! now called from compute_primitive_variables
+      call cmt_metrics(istep)
 
 !     filter the conservative variables before start of each
 !     time step
@@ -164,7 +157,7 @@ C> Store it in res1
       ntot = lx1*ly1*lz1*lelt*toteq
       call rzero(res1,ntot)
       call rzero(flux,heresize)
-      call rzero(graduf,hdsize)
+!     call rzero(graduf,hdsize) ! now has new face jacobian
 
 !     !Total_eqs = 5 (we will set this up so that it can be a user 
 !     !defined value. 5 will be its default value)
@@ -192,6 +185,7 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       dumchars='after_inviscid'
 !     call dumpresidue(dumchars,999)
 
+      if (1 .eq. 2) then
                !                   -
       iuj=iflx ! overwritten with U -{{U}}
 !-----------------------------------------------------------------------
@@ -212,6 +206,7 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}^{\intercal}\nabla v\}\} \cdot \left[\ma
       call igtu_cmt(flux(iwm),flux(iuj),graduf) ! [[u]].{{gradv}}
       dumchars='after_igtu'
 !     call dumpresidue(dumchars,999)
+      endif
 
 C> res1+=\f$\int \left(\nabla v\right) \cdot \left(\mathbf{H}^c+\mathbf{H}^d\right)dV\f$ 
 C> for each equation (inner), one element at a time (outer)
@@ -230,26 +225,30 @@ C> for each equation (inner), one element at a time (outer)
 !-----------------------------------------------------------------------
 ! Get user defined forcing from userf defined in usr file
          call cmtusrf(e)
-         call compute_gradients(e) ! gradU
+         if (1 .eq. 2) call compute_gradients(e) ! gradU
          do eq=1,toteq
             call convective_cmt(e,eq)        ! convh & totalh -> res1
-            call    viscous_cmt(e,eq) ! diffh -> half_iku_cmt -> res1
+            if (1.eq.2) then
+               call    viscous_cmt(e,eq) ! diffh -> half_iku_cmt -> res1
                                              !       |
                                              !       -> diffh2graduf
 ! Compute the forcing term in each of the 5 eqs
-            call compute_forcing(e,eq)
+               call compute_forcing(e,eq)
+            endif
          enddo
       enddo
       dumchars='after_elm'
 !     call dumpresidue(dumchars,999)
 
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\right] dA\f$
+      if (1.eq.2) then
       call igu_cmt(flux(iwp),graduf,flux(iwm))
       do eq=1,toteq
          ieq=(eq-1)*ndg_face+iwp
 !Finally add viscous surface flux functions of derivatives to res1.
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
+      endif
       dumchars='end_of_rhs'
 !     call dumpresidue(dumchars,999)
 
