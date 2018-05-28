@@ -183,7 +183,7 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
       dumchars='after_inviscid'
-!     call dumpresidue(dumchars,999)
+      call dumpresidue(dumchars,999)
 
       if (1 .eq. 2) then
                !                   -
@@ -238,7 +238,7 @@ C> for each equation (inner), one element at a time (outer)
          enddo
       enddo
       dumchars='after_elm'
-!     call dumpresidue(dumchars,999)
+      call dumpresidue(dumchars,999)
 
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\right] dA\f$
       if (1.eq.2) then
@@ -250,7 +250,8 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\righ
       enddo
       endif
       dumchars='end_of_rhs'
-!     call dumpresidue(dumchars,999)
+      call dumpresidue(dumchars,999)
+      call exitt
 
       return
       end

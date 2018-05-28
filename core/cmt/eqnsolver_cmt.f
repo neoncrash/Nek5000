@@ -186,11 +186,54 @@ C> Convective volume terms formed and differentiated^T here
       call evaluate_aliased_conv_h(e,eq)
       call contravariant_flux(totalh,convh,rx(1,1,e),1)
 
-      call fluxdiv_aliased_chain(e,eq)
+      call fluxdiv_strong_contra(e,eq)
 
       return
       end
 C> @}
+
+      subroutine fluxdiv_strong_contra(e,eq)
+! JH052818. Evaluate flux divergence of totalh (in contravariant basis)
+!           in strong/ultraweak form
+      include  'SIZE'
+      include  'INPUT'
+      include  'GEOM'
+      include  'MASS'
+      include  'CMTDATA'
+
+      integer  e,eq
+      parameter (ldd=lx1*ly1*lz1)
+      parameter (ldg=lx1**3,lwkd=2*ldg)
+      common /ctmp1/ ur(ldd),us(ldd),ut(ldd),ju(ldd),ud(ldd),tu(ldd)
+      real ju
+      common /dgradl/ d(ldg),dt(ldg),dg(ldg),dgt(ldg),jgl(ldg),jgt(ldg)
+     $             , wkd(lwkd)
+      real jgl,jgt
+      character*32 cname
+
+      nrstd=ldd
+      nxyz=lx1*ly1*lz1
+      call get_dgll_ptr(ip,lx1,lx1) ! fills dg, dgt
+      write(6,*) 'ip betta be ilx1',ip
+      mxm1=lx1-1
+
+      call rzero(ud,nrstd)
+
+      if (if3d) then
+         call local_grad3(ud,totalh(1,1),totalh(1,2),totalh(1,3),mxm1,1,
+     >                    d(ip),dt(ip),wkd)
+      else
+         call local_grad2(ud,totalh(1,1),totalh(1,2),mxm1,1,d(ip),dt(ip)
+     >                   ,wkd)
+      endif
+
+      call col2   (ud,bm1(1,1,1,e),nxyz)   ! contravariant rx does not
+      call invcol2(ud,jacm1(1,1,1,e),nxyz) ! have quadrature weights
+! needs fleg or removal altogether. not good modularity
+      call add2(res1(1,1,1,e,eq),ud,nxyz)
+
+      return
+      end
 
       subroutine evaluate_aliased_conv_h(e,eq)
 ! JH082418 Unstable. not long for this world
@@ -252,7 +295,8 @@ C> \f$(\nabla v)\cdot \mathbf{H}^c=\mathcal{I}^{\intercal}\mathbf{D}^{\intercal}
 ! JH082418. Formerly flux_div_integral_dealiased. Keep this for simpler
 !           conservation laws on particularly simple meshes.
 !           totalh: correctly formed flux on the Gauss-Legendre (GL) points
-!           rx:     chain-rule nx1 metrics intp'ed to GL point x GL weights
+!           rx:     from set_delias_rx.
+!                   chain-rule nx1 metrics intp'ed to GL point x GL weights
       include  'SIZE'
       include  'INPUT'
       include  'GEOM'
@@ -260,7 +304,6 @@ C> \f$(\nabla v)\cdot \mathbf{H}^c=\mathcal{I}^{\intercal}\mathbf{D}^{\intercal}
       include  'CMTDATA'
 
       integer  e,eq
-      integer  dir
       parameter (ldd=lxd*lyd*lzd)
       parameter (ldg=lxd**3,lwkd=2*ldg)
       common /ctmp1/ ur(ldd),us(ldd),ut(ldd),ju(ldd),ud(ldd),tu(ldd)
@@ -315,7 +358,7 @@ C> @}
 
 !-----------------------------------------------------------------------
 
-      subroutine fluxdiv_chain(e,eq)
+      subroutine fluxdiv_weak_chain(e,eq)
 ! JH082418. Formerly flux_div_integral_aliased. Keep this for...linear
 !           problems on Cartesian meshes? Not long for this world; scalar
 !           DG in nek5000 is probably 100 times better anyway
@@ -326,9 +369,8 @@ C> @}
       include  'CMTDATA'
 
       integer  e,eq
-      integer  dir
-      parameter (ldd=lxd*lyd*lzd)
-      parameter (ldg=lxd**3,lwkd=2*ldg)
+      parameter (ldd=lx1*ly1*lz1)
+      parameter (ldg=lx1**3,lwkd=2*ldg)
       common /ctmp1/ ur(ldd),us(ldd),ut(ldd),ju(ldd),ud(ldd),tu(ldd)
       real ju
       common /dgradl/ d(ldg),dt(ldg),dg(ldg),dgt(ldg),jgl(ldg),jgt(ldg)
@@ -338,8 +380,8 @@ C> @}
 
       nrstd=ldd
       nxyz=lx1*ly1*lz1
-      call get_dgll_ptr(ip,lxd,lxd) ! fills dg, dgt
-      mdm1=lxd-1
+      call get_dgll_ptr(ip,lx1,lx1) ! fills dg, dgt
+      mdm1=lx1-1
 
       call rzero(ur,nrstd)
       call rzero(us,nrstd)

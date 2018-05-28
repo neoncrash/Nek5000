@@ -69,6 +69,8 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
 !     call face_flux_commo(fatface(iflx),fatface(iflx),ndg_face,toteq,
 !    >                     flux_hndl) ! for non-symmetric gs_op someday
 
+! JH052818 Migrating back to strong/ultraweak form
+      call chsign(fatface(iflx),toteq*nfq)
 C> @}
 
       return

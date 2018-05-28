@@ -131,10 +131,10 @@ C> by nek5000
       integer lfq,heresize,hdsize
       parameter (lfq=lx1*lz1*2*ldim*lelt,
      >                   heresize=18*3*lfq,! guarantees transpose of Q+ fits
-     >                   hdsize=(toteq-1)*3*lfq) ! might not need ldim
+     >                   hdsize=(toteq*3-1)*lfq) ! might not need ldim
       common /CMTSURFLX/ fatface(heresize),jface(lfq),graduf(hdsize)
       real fatface,jface,graduf
-      parameter (ldg=lxd**3,lwkd=4*lxd*lxd)
+      parameter (ldg=lx1**3,lwkd=4*lx1*lx1)
       common /dgradl/d(ldg),dt(ldg),dg(ldg),dgt(ldg),jgl(ldg),jgt(ldg)
      > ,wkd(lwkd)
       real jgl,jgt
@@ -186,6 +186,7 @@ C> by nek5000
 
       call get_dgll_ptr(igeo,ngeo,ngeo)
       call get_dgll_ptr(ilx1,lx1,lx1)
+      write(6,*) 'ilx1 beetta be ip',ilx1
 
 
       lcmtsurflx=0
