@@ -69,8 +69,6 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
 !     call face_flux_commo(fatface(iflx),fatface(iflx),ndg_face,toteq,
 !    >                     flux_hndl) ! for non-symmetric gs_op someday
 
-! JH052818 Migrating back to strong/ultraweak form
-      call chsign(fatface(iflx),toteq*nfq)
 C> @}
 
       return
@@ -483,5 +481,42 @@ C> @}
          enddo
       enddo
 
+      return
+      end
+
+!-----------------------------------------------------------------------
+
+      subroutine strong_sfc_flux(flux,vflx,e,eq)
+! JH052818 dedicated routine for stripping faces from an array vflx of
+!          physical fluxes on GLL faces and storing them in the flux
+!          pile of faces for a call to surface_integral_full
+      include 'SIZE'
+      include 'INPUT'
+      include 'GEOM' ! for unx
+      include 'DG'
+      
+      parameter (lf=lx1*lz1*2*ldim)
+      COMMON /SCRNS/ yourface(lf),normal(lf)
+      real yourface,normal
+      real flux(lx1*lz1,2*ldim,nelt,toteq) ! out
+      real vflx(lx1*ly1*lz1,ldim)          ! in
+      integer e,eq
+      integer f
+
+      nxz =lx1*lz1
+      nxzf=nxz*2*ldim
+
+      call rzero(flux(1,1,e,eq),nxzf)
+      do j=1,ldim
+         if (j .eq. 1) call copy(normal,unx(1,1,1,e),nxzf)
+         if (j .eq. 2) call copy(normal,uny(1,1,1,e),nxzf)
+         if (j .eq. 3) call copy(normal,unz(1,1,1,e),nxzf)
+         call full2face_cmt(1,lx1,ly1,lz1,iface_flux(1,e),yourface,
+     >                      vflx(1,j))
+         call col2(yourface,normal,nxzf)
+!        call add2(flux(1,1,e,eq),yourface,nxzf) ! needed for +sign in RK loop
+         call sub2(flux(1,1,e,eq),yourface,nxzf)
+      enddo
+      call col2(flux(1,1,e,eq),area(1,1,1,e),nxzf)
       return
       end

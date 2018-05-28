@@ -178,15 +178,29 @@ C> Convective volume terms formed and differentiated^T here
       include 'SIZE'
       include 'CMTDATA'
       include 'GEOM'
+      include 'DG'
+      integer lfq,heresize,hdsize
+      parameter (lfq=lx1*lz1*2*ldim*lelt,
+     >                   heresize=nqq*3*lfq,! guarantees transpose of Q+ fits
+     >                   hdsize=toteq*3*lfq) ! might not need ldim
+! not sure if viscous surface fluxes can live here yet
+      common /CMTSURFLX/ flux(heresize),graduf(hdsize)
+      real graduf
       integer e,eq
 
       n=3*lx1*ly1*lz1
+      nstate=nqq
+      nfq=lx1*lz1*2*ldim*nelt
+      iwm =1
+      iwp =iwm+nstate*nfq
+      iflx=iwp+nstate*nfq
 
       call rzero(convh,n)
       call evaluate_aliased_conv_h(e,eq)
       call contravariant_flux(totalh,convh,rx(1,1,e),1)
 
       call fluxdiv_strong_contra(e,eq)
+      call strong_sfc_flux(flux(iflx),totalh,e,eq)
 
       return
       end
@@ -214,7 +228,6 @@ C> @}
       nrstd=ldd
       nxyz=lx1*ly1*lz1
       call get_dgll_ptr(ip,lx1,lx1) ! fills dg, dgt
-      write(6,*) 'ip betta be ilx1',ip
       mxm1=lx1-1
 
       call rzero(ud,nrstd)

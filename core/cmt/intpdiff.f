@@ -126,7 +126,8 @@ C> by nek5000
       include 'INPUT'
       include 'GEOM'
       include 'DG'
-!     include 'WZ' ! diagnostic
+      include 'WZ'
+      include 'MASS'
 
       integer lfq,heresize,hdsize
       parameter (lfq=lx1*lz1*2*ldim*lelt,
@@ -186,8 +187,6 @@ C> by nek5000
 
       call get_dgll_ptr(igeo,ngeo,ngeo)
       call get_dgll_ptr(ilx1,lx1,lx1)
-      write(6,*) 'ilx1 beetta be ip',ilx1
-
 
       lcmtsurflx=0
       do e=1,nelt
@@ -345,6 +344,16 @@ C> by nek5000
 
          endif ! if3d
 
+         write(6,*) 'mass,old,new'
+         do iz=1,lz1
+         do iy=1,ly1
+         do ix=1,lx1
+         write(6,*) bm1(ix,iy,iz,e),jacm1(ix,iy,iz,e)*wxm1(ix)*wym1(iy)*
+     >                                                wzm1(iz)
+         enddo
+         enddo
+         enddo
+
          j0=0
          do j=1,ldim    ! r_j
             do i=1,ldim ! x_i
@@ -369,8 +378,11 @@ C> by nek5000
                unx(l,1,f,e)=jaface(l,f,1,ndir(f))/anew*nsgn(f)
                uny(l,1,f,e)=jaface(l,f,2,ndir(f))/anew*nsgn(f)
                if (if3d) unz(l,1,f,e)=jaface(l,f,3,ndir(f))/anew*nsgn(f)
-! check deformed meshes
-!              write(6,*) f,'area,old,new',area(l,1,f,e)/wxm1(ix),anew
+! TODO: check again on deformed meshes.
+
+! we're taking over this town
+               area(ix,iz,f,e)=anew*wxm1(ix)*wzm1(iz)
+
 !              unxnew=jaface(l,f,1,ndir(f))/anew*nsgn(f)
 !              unynew=jaface(l,f,2,ndir(f))/anew*nsgn(f)
 !              if (if3d) unznew=jaface(l,f,3,ndir(f))/anew*nsgn(f)
