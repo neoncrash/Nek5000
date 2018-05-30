@@ -156,6 +156,15 @@ C> by nek5000
       data ndir /2,1,2,1,3,3/
       data nsgn /-1,1,1,-1,-1,1/
 
+      integer ilstep
+      save    ilstep
+      data    ilstep /-1/
+
+      if (.not.ifgeom.and.ilstep.gt.1) return  ! already computed
+      if (ifgeom.and.ilstep.eq.istp)  return  ! already computed
+      ilstep = istp
+      write(6,*) 'welcome to cmt_metrics'
+
       n=ngeoref**ldim
       nxyz=lx1*ly1*lz1
 
@@ -344,16 +353,6 @@ C> by nek5000
 
          endif ! if3d
 
-         write(6,*) 'mass,old,new'
-         do iz=1,lz1
-         do iy=1,ly1
-         do ix=1,lx1
-         write(6,*) bm1(ix,iy,iz,e),jacm1(ix,iy,iz,e)*wxm1(ix)*wym1(iy)*
-     >                                                wzm1(iz)
-         enddo
-         enddo
-         enddo
-
          j0=0
          do j=1,ldim    ! r_j
             do i=1,ldim ! x_i
@@ -365,8 +364,8 @@ C> by nek5000
 
          do f=1,2*ldim
             l=0
-            do iz=1,nz1
-            do ix=1,nx1
+            do iz=1,lz1
+            do ix=1,lx1
                anew=0.0
                l=l+1
                lcmtsurflx=lcmtsurflx+1

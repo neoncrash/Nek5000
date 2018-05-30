@@ -246,11 +246,12 @@ C> res1-=\f$\oint \mathbf{H}^{c}\cdot\mathbf{n}dA\f$ on face points
       iwm =1
       iwp =iwm+nstate*nfq
       iflx=iwp+nstate*nfq
+      write(6,*) 'iflx there=',iflx
       do eq=1,toteq
          ieq=(eq-1)*ndg_face+iflx
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
-      dumchars='after_strong`'
+      dumchars='after_strong'
       call dumpresidue(dumchars,999)
 
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\right] dA\f$

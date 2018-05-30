@@ -194,10 +194,20 @@ C> Convective volume terms formed and differentiated^T here
       iwm =1
       iwp =iwm+nstate*nfq
       iflx=iwp+nstate*nfq
+      writE(6,*) 'iflx here =',iflx
 
       call rzero(convh,n)
       call evaluate_aliased_conv_h(e,eq)
       call contravariant_flux(totalh,convh,rx(1,1,e),1)
+! diagnostic
+      if (e.eq.1) then
+         do j=1,ndim
+         do i=1,lx1*ly1*lz1
+            write(34,'(i1,1x,a4,e17.8,1x,a6,e17.8)') 
+     >      j,'raw=',totalh(i,j)/jacm1(i,1,1,e),'vflux=',totalh(i,j)
+         enddo
+         enddo
+      endif
 
       call fluxdiv_strong_contra(e,eq)
       call strong_sfc_flux(flux(iflx),totalh,e,eq)
