@@ -242,16 +242,24 @@ C> @}
 
       call rzero(ud,nrstd)
 
-      if (if3d) then
-         call local_grad3(ud,totalh(1,1),totalh(1,2),totalh(1,3),mxm1,1,
-     >                    d(ip),dt(ip),wkd)
+      if (if3d) then ! swapping d and dt should do the trick
+         call local_grad3_t(ud,totalh(1,1),totalh(1,2),totalh(1,3),mxm1,
+     >                      1,dt(ip),d(ip),wkd)
       else
-         call local_grad2(ud,totalh(1,1),totalh(1,2),mxm1,1,d(ip),dt(ip)
-     >                   ,wkd)
+         call local_grad2_t(ud,totalh(1,1),totalh(1,2),mxm1,1,dt(ip),
+     >                      d(ip),wkd)
+      endif
+
+      if (eq.eq.1.and.e.eq.1) then
+         do i=1,nxyz
+            write(35,'(a12,3e17.8)') 
+     >      'did it work?',xm1(i,1,1,e),ym1(i,1,1,e),ud(i)
+         enddo
       endif
 
       call col2   (ud,bm1(1,1,1,e),nxyz)   ! contravariant rx does not
-      call invcol2(ud,jacm1(1,1,1,e),nxyz) ! have quadrature weights
+      call invcol2(ud,jacm1(1,1,1,e),nxyz) ! have quadrature weights,
+                                           ! but it does have a better J
 ! needs fleg or removal altogether. not good modularity
       call add2(res1(1,1,1,e,eq),ud,nxyz)
 
