@@ -392,6 +392,9 @@ C> by nek5000
             enddo
          enddo
 
+! might as well recompute the mass matrix
+         call col3(bm1(1,1,1,e),jacm1(1,1,1,e),w3m1,nxyz)
+
       enddo ! e=1,nelt
 
       return

@@ -324,10 +324,10 @@ C> @}
 
          do j=1,toteq
 ! diagnostic
-            if (e.eq.1) then
+            if (e.eq.1.and.j.eq.1) then
                do i=1,nxz
                write(33,'(i1,1x,a3,i1,1x,a4,e17.8,1x,a4,e17.8)')
-     >         f,'eq=',j,'flx=',flx(i,j)/jaco_f(i),'raw=',flx(i,j)
+     >         f,'eq=',j,'weak',flx(i,j)/jaco_f(i),'by_a',flx(i,j)
                enddo
             endif
 ! diagnostic
@@ -519,7 +519,9 @@ C> @}
       do j=1,ldim
             if (e.eq.1.and.eq.eq.1) then
          do i=1,lx1*ly1*lz1
-            write(33,*) 'duh sir ',j,vflx(i,j)
+            write(32,'(a7,1x,i1,4e17.8)') 
+     >       'volflux ',j,xm1(i,1,1,e),ym1(i,1,1,e),vflx(i,j),
+     >rx(i,1,e)
          enddo
          endif
          if (j .eq. 1) call copy(normal,unx(1,1,1,e),nxzf)
@@ -532,10 +534,16 @@ C> @}
             if (e.eq.1.and.eq.eq.1) then
                l=0
                do f=1,2*ldim
-               do i=1,nxz
+         call facind (kx1,kx2,ky1,ky2,kz1,kz2,lx1,ly1,lz1,f)
+               do iz=kz1,kz2
+               do iy=ky1,ky2
+               do ix=kx1,kx2
                   l=l+1
-               write(33,'(i1,1x,a3,i1,1x,a4,e17.8,1x,a4,i1)')
-     >         f,'eq=',eq,'raw=',yourface(l),'dir=',j
+               write(33,'(i1,1x,a3,i1,1x,a4,e17.8,1x,a4,i1,1x,2e17.8)')
+     >         f,'eq=',eq,'raw=',yourface(l),'dir=',j,xm1(ix,iy,iz,e),
+     >ym1(ix,iy,iz,e)
+               enddo
+               enddo
                enddo
                enddo
             endif
@@ -546,12 +554,19 @@ C> @}
       call col2(flux(1,1,e,eq),area(1,1,1,e),nxzf)
 ! diagnostic
       if (e.eq.1.and.eq.eq.1) then
-         l=0
          do f=1,2*ldim
-         do i=1,nxz
-            write(33,'(i1,a3,i1,1x,a4,e17.8,1x,a4,i1)')
-     >         f,'eq=',eq,'flx=',flux(i,f,e,eq)
-         enddo
+            l=0
+         call facind (kx1,kx2,ky1,ky2,kz1,kz2,lx1,ly1,lz1,f)
+               do iz=kz1,kz2
+               do iy=ky1,ky2
+               do ix=kx1,kx2
+                  l=l+1
+            write(33,'(i1,a3,i1,1x,a4,3e17.8)')
+     >         f,'eq=',eq,'str=',flux(l,f,e,eq),xm1(ix,iy,iz,e),
+     > ym1(ix,iy,iz,e)
+               enddo
+               enddo
+               enddo
          enddo
       endif
       call exitt
