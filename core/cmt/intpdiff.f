@@ -93,13 +93,6 @@ C> by nek5000
 
       if (if3d) then
          k=0
-         do j=1,ly1
-         do i=1,lx1
-            k=k+1
-            wghtc(k)=wxm1(i)*wzm1(j)
-         enddo
-         enddo
-         k=0
          do j=1,lyd
          do i=1,lxd
             k=k+1
@@ -107,7 +100,6 @@ C> by nek5000
          enddo
          enddo
       else
-         call copy(wghtc,wxm1,lx1)
          call copy(wghtf,wgtf,lxd)
       endif
 
@@ -394,6 +386,13 @@ C> by nek5000
 
 ! might as well recompute the mass matrix
          call col3(bm1(1,1,1,e),jacm1(1,1,1,e),w3m1,nxyz)
+! and we need this for strong-form discontinuous surface fluxes computed
+! from contravariant volume fluxes
+         do j=1,ly1
+         do i=1,lx1
+            w2m1(i,j)=wxm1(i)*wzm1(j)
+         enddo
+         enddo
 
       enddo ! e=1,nelt
 

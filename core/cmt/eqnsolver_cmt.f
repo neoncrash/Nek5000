@@ -194,20 +194,10 @@ C> Convective volume terms formed and differentiated^T here
       iwm =1
       iwp =iwm+nstate*nfq
       iflx=iwp+nstate*nfq
-      writE(6,*) 'iflx here =',iflx
 
       call rzero(convh,n)
       call evaluate_aliased_conv_h(e,eq)
       call contravariant_flux(totalh,convh,rx(1,1,e),1)
-! diagnostic
-      if (e.eq.1) then
-         do j=1,ndim
-         do i=1,lx1*ly1*lz1
-            write(34,'(i1,1x,a4,e17.8,1x,a6,e17.8)') 
-     >      j,'raw=',totalh(i,j)/jacm1(i,1,1,e),'vflux=',totalh(i,j)
-         enddo
-         enddo
-      endif
 
       call fluxdiv_strong_contra(e,eq)
       call strong_sfc_flux(flux(iflx),totalh,e,eq)
@@ -250,16 +240,6 @@ C> @}
          call local_grad2_t(ud,totalh(1,1),totalh(1,2),mxm1,1,dt(ip),
      >                      d(ip),wkd)
       endif
-
-! so far so good. check more thoroughly
-! diagnostic
-!     if (eq.eq.1) then
-!        do i=1,nxyz
-!           write(35,'(a11,1x,3e17.8)') 
-!    >      'volrhs,mass',xm1(i,1,1,e),ym1(i,1,1,e),ud(i)
-!        enddo
-!     endif
-! diagnostic
 
       call col2   (ud,bm1(1,1,1,e),nxyz)   ! contravariant rx does not
       call invcol2(ud,jacm1(1,1,1,e),nxyz) ! have quadrature weights

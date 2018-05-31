@@ -286,7 +286,7 @@ C> @}
 
             call map_faced(phl,wminus(1,f,e,iph),lx1,lxd,fdim,0)
 
-            call invcol3(jaco_c,area(1,1,f,e),wghtc,nxz)
+            call invcol3(jaco_c,area(1,1,f,e),w2m1,nxz)
             call map_faced(jaco_f,jaco_c,lx1,lxd,fdim,0) 
             call col2(jaco_f,wghtf,nxzd)
          else
@@ -323,14 +323,6 @@ C> @}
      >                          al,tl,rr,ur,vr,wr,pr,ar,tr,flx,cpl,cpr)
 
          do j=1,toteq
-! diagnostic
-            if (e.eq.1.and.j.eq.1) then
-               do i=1,nxz
-               write(33,'(i1,1x,a3,i1,1x,a4,e17.8,1x,a4,e17.8)')
-     >         f,'eq=',j,'weak',flx(i,j)/jaco_f(i),'by_a',flx(i,j)
-               enddo
-            endif
-! diagnostic
             call col2(flx(1,j),phl,nxzd)
          enddo
 
@@ -513,63 +505,25 @@ C> @}
 
       nxz =lx1*lz1
       nxzf=nxz*2*ldim
+      nfaces=2*ldim
 
       call rzero(flux(1,1,e,eq),nxzf)
-! diagnostic
+
       do j=1,ldim
-            if (e.eq.1.and.eq.eq.1) then
-         do i=1,lx1*ly1*lz1
-            write(32,'(a7,1x,i1,4e17.8)') 
-     >       'volflux ',j,xm1(i,1,1,e),ym1(i,1,1,e),vflx(i,j),
-     >rx(i,1,e)
-         enddo
-         endif
          if (j .eq. 1) call copy(normal,unx(1,1,1,e),nxzf)
          if (j .eq. 2) call copy(normal,uny(1,1,1,e),nxzf)
          if (j .eq. 3) call copy(normal,unz(1,1,1,e),nxzf)
          call full2face_cmt(1,lx1,ly1,lz1,iface_flux(1,e),yourface,
      >                      vflx(1,j))
          call col2(yourface,normal,nxzf)
-! diagnostic
-            if (e.eq.1.and.eq.eq.1) then
-               l=0
-               do f=1,2*ldim
-         call facind (kx1,kx2,ky1,ky2,kz1,kz2,lx1,ly1,lz1,f)
-               do iz=kz1,kz2
-               do iy=ky1,ky2
-               do ix=kx1,kx2
-                  l=l+1
-               write(33,'(i1,1x,a3,i1,1x,a4,e17.8,1x,a4,i1,1x,2e17.8)')
-     >         f,'eq=',eq,'raw=',yourface(l),'dir=',j,xm1(ix,iy,iz,e),
-     >ym1(ix,iy,iz,e)
-               enddo
-               enddo
-               enddo
-               enddo
-            endif
-! diagnostic
 !        call add2(flux(1,1,e,eq),yourface,nxzf) ! needed for +sign in RK loop
          call sub2(flux(1,1,e,eq),yourface,nxzf)
       enddo
-      call col2(flux(1,1,e,eq),area(1,1,1,e),nxzf)
-! diagnostic
-      if (e.eq.1.and.eq.eq.1) then
-         do f=1,2*ldim
-            l=0
-         call facind (kx1,kx2,ky1,ky2,kz1,kz2,lx1,ly1,lz1,f)
-               do iz=kz1,kz2
-               do iy=ky1,ky2
-               do ix=kx1,kx2
-                  l=l+1
-            write(33,'(i1,a3,i1,1x,a4,3e17.8)')
-     >         f,'eq=',eq,'str=',flux(l,f,e,eq),xm1(ix,iy,iz,e),
-     > ym1(ix,iy,iz,e)
-               enddo
-               enddo
-               enddo
-         enddo
-      endif
-      call exitt
-! diagnostic
+
+!     call col2(flux(1,1,e,eq),area(1,1,1,e),nxzf)
+      do f=1,nfaces
+         call col2(flux(1,f,e,eq),w2m1,nxz)
+      enddo
+
       return
       end
