@@ -187,6 +187,8 @@ C> Convective volume terms formed and differentiated^T here
       common /CMTSURFLX/ flux(heresize),graduf(hdsize)
       real graduf
       integer e,eq
+      real kennedygruber
+      external kennedygruber
 
       n=3*lx1*ly1*lz1
       nstate=nqq
@@ -199,12 +201,19 @@ C> Convective volume terms formed and differentiated^T here
       call evaluate_aliased_conv_h(e,eq)
       call contravariant_flux(totalh,convh,rx(1,1,e),1)
 
-      call fluxdiv_strong_contra(e,eq)
+! one-point, aliased
+!     call fluxdiv_strong_contra(e,eq)
+      call fluxdiv_2point_driver(convh,e,rx(1,1,e),kennedygruber)
+
       call strong_sfc_flux(flux(iflx),totalh,e,eq)
 
       return
       end
 C> @}
+
+      subroutine fluxdiv_2point_driver(res,e,ja,vfluxfunction)
+      return
+      end
 
       subroutine fluxdiv_strong_contra(e,eq)
 ! JH052818. Evaluate flux divergence of totalh (in contravariant basis)
@@ -237,13 +246,12 @@ C> @}
          call local_grad3_t(ud,totalh(1,1),totalh(1,2),totalh(1,3),mxm1,
      >                      1,dt(ip),d(ip),wkd)
       else
-         call local_grad2_t(ud,totalh(1,1),totalh(1,2),mxm1,1,dt(ip),
-     >                      d(ip),wkd)
+         call local_grad2_t(ud,totalh(1,1),totalh(1,2),mxm1,
+     >                      1,dt(ip),d(ip),wkd)
       endif
 
       call col2   (ud,bm1(1,1,1,e),nxyz)   ! contravariant rx does not
       call invcol2(ud,jacm1(1,1,1,e),nxyz) ! have quadrature weights
-! needs fleg or removal altogether. not good modularity
       call add2(res1(1,1,1,e,eq),ud,nxyz)
 
       return

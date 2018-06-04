@@ -263,7 +263,8 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\righ
       enddo
       endif
       dumchars='end_of_rhs'
-!     call dumpresidue(dumchars,999)
+      call dumpresidue(dumchars,999)
+      call exitt
 
       return
       end
