@@ -212,6 +212,22 @@ C> Convective volume terms formed and differentiated^T here
 C> @}
 
       subroutine fluxdiv_2point_driver(res,e,ja,vfluxfunction)
+      include 'SIZE'
+      include 'DG'
+      include 'GEOM' ! diagnostic. conflicts with ja
+      include 'SOLN'
+      include 'CMTDATA'
+! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
+!          in the contravariant frame, call fluxdiv_2point, and increment res
+!          for e^th element.
+!          Metric terms Ja probably shouldn't be an argument but whatever.
+!          vfluxfunction is an argument in the spirit of Gassner, Winters & Kopriva
+      integer e
+      real vfluxfunction
+      real res(lx1,ly1,lz1)
+      real ja(lx1,ly1,lz1,ldim,ldim)
+      common /scrns/ waux(toteq,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1)
+      real waux,ut
       return
       end
 
