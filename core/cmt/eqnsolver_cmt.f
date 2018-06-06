@@ -188,8 +188,7 @@ C> Convective volume terms formed and differentiated^T here
       common /CMTSURFLX/ flux(heresize),graduf(hdsize)
       real graduf
       integer e,eq
-!     real kennedygruber
-!     external kennedygruber
+      external kennedygruber
 
       n=3*lx1*ly1*lz1*toteq
       nstate=nqq
@@ -206,8 +205,9 @@ C> Convective volume terms formed and differentiated^T here
       enddo
 
 ! one-point, aliased
-      call fluxdiv_strong_contra(e)
-!     call fluxdiv_2point_driver(convh,totalh,e,rx(1,1,e),kennedygruber)
+!     call fluxdiv_strong_contra(e)
+! two-point, KEP/EC
+      call fluxdiv_2point_driver(convh,totalh,e,rx(1,1,e),kennedygruber)
 
       return
       end
@@ -225,24 +225,57 @@ C> @}
 !          Metric terms Ja probably shouldn't be an argument but whatever.
 !          vfluxfunction is an argument in the spirit of Gassner, Winters & Kopriva
 !          res is LOCAL RHS (not indexed by e)
-      integer e
-      real vfluxfunction
+      integer e,eq
+      external vfluxfunction
       real res(lx1,ly1,lz1)
       real ja(lx1,ly1,lz1,ldim,ldim) ! rst outermost
       real fcons(lx1,ly1,lz1,ldim)   ! consistent ``1-point'' flux
 ! scratch element for extra variables (hardcoded) and conserved variables U
 ! transposed to quantity-innermost. unvectorizable?
       common /scrns/ waux (4,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1),
-     >               wauxt(lx1*ly1*lz1,4)
-      real waux,ut
+     >               wauxt(lx1*ly1*lz1,4),jat(3,3,lx1,ly1,lz1)
+     >              ,rhsscr(lx1,toteq)
+      real waux,ut,wauxt,jat,rhsscr
+      real flx(5)
 
       nxyz=lx1*ly1*lz1
       call copy(wauxt(1,1),vx(1,1,1,e),nxyz)
       call copy(wauxt(1,2),vy(1,1,1,e),nxyz)
       call copy(wauxt(1,3),vz(1,1,1,e),nxyz)
       call copy(wauxt(1,4),pr(1,1,1,e),nxyz)
-      call transpose(waux,nxyz,wauxt,4)
+      call transpose(waux,4,wauxt,nxyz)
       call transpose(ut,toteq,u(1,1,1,1,e),nxyz)
+
+      call rzero(jat,9*lx1*ly1*lz1)
+      do j=1,ldim
+         do i=1,ldim
+            do iz=1,lz1
+            do iy=1,ly1
+            do ix=1,lx1
+               jat(i,j,ix,iy,iz)=ja(ix,iy,iz,i,j)
+            enddo
+            enddo
+            enddo
+         enddo
+      enddo
+
+      do iz=1,lz1
+      do iy=1,ly1
+      do ix=1,lx1
+         do l=ix+1,lx1
+            call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,l,iy,iz),
+     >                         waux(1,ix,iy,iz),waux(1,l,iy,iz),
+     >                         jat(1,1,ix,iy,iz),jat(1,1,l,iy,iz))
+            do eq=1,toteq
+               rhsscr(ix,eq)=rhsscr(ix,eq)+dstrong(ix,l)*flx(eq)
+               rhsscr(l,eq )=rhsscr(l, eq)+dstrong(l,iz)*flx(eq)
+            enddo
+         enddo
+      enddo
+      enddo
+      enddo
+
+      call exitt
 
       return
       end
