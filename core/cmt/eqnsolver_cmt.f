@@ -202,13 +202,12 @@ C> Convective volume terms formed and differentiated^T here
       call evaluate_aliased_conv_h(e)
       do eq=1,toteq
       call contravariant_flux(totalh(1,1,eq),convh(1,1,eq),rx(1,1,e),1)
+      call strong_sfc_flux(flux(iflx),totalh(1,1,eq),e,eq)
       enddo
 
 ! one-point, aliased
       call fluxdiv_strong_contra(e)
 !     call fluxdiv_2point_driver(convh,totalh,e,rx(1,1,e),kennedygruber)
-
-      call strong_sfc_flux(flux(iflx),totalh(1,1,eq),e,eq)
 
       return
       end
