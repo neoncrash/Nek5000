@@ -222,12 +222,13 @@ C> for each equation (inner), one element at a time (outer)
 !          at once, then this and its dependents can still have their
 !          loop order flipped and things like totalh declared for
 !          15 full fields or more.
+! JH060418 totalh is now 15 elements. interchanged with equation loop
 !-----------------------------------------------------------------------
 ! Get user defined forcing from userf defined in usr file
          call cmtusrf(e)
          if (1 .eq. 2) call compute_gradients(e) ! gradU
+         call convective_cmt(e)        ! convh & totalh -> res1
          do eq=1,toteq
-            call convective_cmt(e,eq)        ! convh & totalh -> res1
             if (1.eq.2) then
                call    viscous_cmt(e,eq) ! diffh -> half_iku_cmt -> res1
                                              !       |
