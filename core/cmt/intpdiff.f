@@ -195,6 +195,9 @@ C> by nek5000
       dstrong(1,1)     = 2.0*d(ilx1)         +1.0/wxm1(1)
       dstrong(lx1,lx1) = 2.0*d(ilx1+lx1**2-1)-1.0/wxm1(lx1)
       call transpose(dstrongt,lx1,dstrong,lx1)
+! diagnostic
+      write(6,*) 'now you see it'
+      call matout_rowsum(dstrong,lx1,lx1)
 
       lcmtsurflx=0
       do e=1,nelt

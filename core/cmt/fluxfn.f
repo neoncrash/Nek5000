@@ -196,13 +196,15 @@ C> @}
       call rzero(jav,3)
       call rzero(uav,3)
       do j=1,ldim
-         jav(j)=0.5*(jal(j)  +jar(j))
-         uav(j)=0.5*( wl(j+1)+ wr(j+1))
+         jav(j)=0.5*(jal(j)+jar(j))
+         uav(j)=0.5*( wl(j)+ wr(j))
       enddo
       rav=0.5*(rl +rr )
       pav=0.5*(pl +pr )
       eav=0.5*(ul(5)/rl+ur(5)/rr)
       qav=0.0
+      write(6,'(a32,8e12.4)') '{{r}}{{u}}{{v}}{{w}}{{p}}{{ja}}=',
+     >rav,(uav(j),j=1,3),pav,(jav(j),j=1,3)
       do j=1,ldim
          qav=qav+uav(j)*jav(j)
       enddo

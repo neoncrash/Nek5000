@@ -207,7 +207,7 @@ C> Convective volume terms formed and differentiated^T here
 ! one-point, aliased
 !     call fluxdiv_strong_contra(e)
 ! two-point, KEP/EC
-      call fluxdiv_2point_driver(convh,totalh,e,rx(1,1,e),kennedygruber)
+      call fluxdiv_2point_driver(res1,totalh,e,rx(1,1,e),kennedygruber)
 
       return
       end
@@ -219,6 +219,7 @@ C> @}
       include 'GEOM' ! diagnostic. conflicts with ja
       include 'SOLN'
       include 'CMTDATA'
+      include 'DXYZ' ! diagnostic unless I can't get dstrong from DG to work
 ! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
 !          in the contravariant frame, call fluxdiv_2point, and increment res
 !          for e^th element.
@@ -227,9 +228,9 @@ C> @}
 !          res is LOCAL RHS (not indexed by e)
       integer e,eq
       external vfluxfunction
-      real res(lx1,ly1,lz1)
-      real ja(lx1,ly1,lz1,ldim,ldim) ! rst outermost
-      real fcons(lx1,ly1,lz1,ldim)   ! consistent ``1-point'' flux
+      real res(lx1,ly1,lz1,lelt,toteq) ! CMTDATA lurks
+      real ja(lx1,ly1,lz1,ldim,ldim)   ! rst outermost
+      real fcons(lx1,ly1,lz1,ldim,toteq)   ! consistent ``1-point'' flux
 ! scratch element for extra variables (hardcoded) and conserved variables U
 ! transposed to quantity-innermost. unvectorizable?
       common /scrns/ waux (4,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1),
@@ -261,6 +262,7 @@ C> @}
 
       do iz=1,lz1
       do iy=1,ly1
+      call rzero(rhsscr,toteq*lx1)
       do ix=1,lx1
          do l=ix+1,lx1
             call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,l,iy,iz),
@@ -268,14 +270,28 @@ C> @}
      >                         jat(1,1,ix,iy,iz),jat(1,1,l,iy,iz))
             do eq=1,toteq
                rhsscr(ix,eq)=rhsscr(ix,eq)+dstrong(ix,l)*flx(eq)
-               rhsscr(l,eq )=rhsscr(l, eq)+dstrong(l,iz)*flx(eq)
+               rhsscr(l, eq)=rhsscr(l, eq)+dstrong(l,ix)*flx(eq)
+!              rhsscr(ix,eq)=rhsscr(ix,eq)+2.0*dxm1(ix,l)*flx(eq)
+!              rhsscr(l,eq )=rhsscr(l, eq)+2.0*dxm1(l,ix)*flx(eq)
             enddo
          enddo
-      enddo
-      enddo
+         do eq=1,toteq
+            rhsscr(ix,eq)=rhsscr(ix,eq)+
+     >                    dstrong(ix,ix)*fcons(ix,iy,iz,1,eq)
+!    >                    2.0*dxm1(ix,ix)*fcons(ix,iy,iz,1,eq)
+         enddo
       enddo
 
+! diagnostic
+      do ix=1,lx1
+         write(40,'(7e15.7)')
+     >   xm1(ix,iy,iz,e),ym1(ix,iy,iz,e),(rhsscr(ix,eq),eq=1,toteq)
+      enddo
+      write(6,*) 'dstrong'
+      call matout_rowsum(dstrong,lx1,lx1)
       call exitt
+      enddo ! iy
+      enddo ! iz
 
       return
       end

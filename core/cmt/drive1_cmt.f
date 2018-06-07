@@ -42,7 +42,7 @@ c     Solve the Euler equations
          call compute_mesh_h(meshh,xm1,ym1,zm1)
          call compute_grid_h(gridh,xm1,ym1,zm1)
          call compute_primitive_vars ! get good mu
-         call entropy_viscosity      ! for high diffno
+         if (1==2) call entropy_viscosity      ! for high diffno
          call compute_transport_props! at t=0
 
       endif
@@ -148,7 +148,7 @@ C> Store it in res1
          call set_tstep_coef
       endif
 
-      call entropy_viscosity ! accessed through uservp. computes
+      if (1.eq.2) call entropy_viscosity ! accessed through uservp. computes
                              ! entropy residual and max wave speed
       call compute_transport_props ! everything inside rk stage
 !     call smoothing(vdiff(1,1,1,1,imu)) ! still done in usr file
