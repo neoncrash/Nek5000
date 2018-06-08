@@ -239,7 +239,8 @@ C> for each equation (inner), one element at a time (outer)
          enddo
       enddo
       dumchars='after_elm'
-!     call dumpresidue(dumchars,999)
+      call dumpresidue(dumchars,999)
+      call exitt
 
 C> res1-=\f$\oint \mathbf{H}^{c}\cdot\mathbf{n}dA\f$ on face points
       nstate=nqq

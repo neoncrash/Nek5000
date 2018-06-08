@@ -201,7 +201,7 @@ C> Convective volume terms formed and differentiated^T here
       call evaluate_aliased_conv_h(e)
       do eq=1,toteq
       call contravariant_flux(totalh(1,1,eq),convh(1,1,eq),rx(1,1,e),1)
-      call strong_sfc_flux(flux(iflx),totalh(1,1,eq),e,eq)
+!     call strong_sfc_flux(flux(iflx),totalh(1,1,eq),e,eq)
       enddo
 
 ! one-point, aliased
@@ -215,10 +215,12 @@ C> @}
 
       subroutine fluxdiv_2point_driver(res,fcons,e,ja,vfluxfunction)
       include 'SIZE'
+      include 'INPUT' ! if3d
       include 'DG'
       include 'GEOM' ! diagnostic. conflicts with ja
+      include 'MASS'
       include 'SOLN'
-      include 'CMTDATA'
+      include 'CMTDATA' ! res1 lurks. consider just /SOLNCONSVAR/
       include 'DXYZ' ! diagnostic unless I can't get dstrong from DG to work
 ! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
 !          in the contravariant frame, call fluxdiv_2point, and increment res
@@ -235,9 +237,9 @@ C> @}
 ! transposed to quantity-innermost. unvectorizable?
       common /scrns/ waux (4,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1),
      >               wauxt(lx1*ly1*lz1,4),jat(3,3,lx1,ly1,lz1)
-     >              ,rhsscr(lx1,toteq)
-      real waux,ut,wauxt,jat,rhsscr
-      real flx(5)
+     >              ,scr2pt(toteq,lx1),resscr(lx1,ly1,lz1,toteq)
+      real waux,ut,wauxt,jat,scr2pt,resscr
+      real flx(5),diag(3)
 
       nxyz=lx1*ly1*lz1
       call copy(wauxt(1,1),vx(1,1,1,e),nxyz)
@@ -259,42 +261,95 @@ C> @}
             enddo
          enddo
       enddo
+      call rzero(resscr,toteq*lx1*ly1*lz1)
 
       do iz=1,lz1
       do iy=1,ly1
-      call rzero(rhsscr,toteq*lx1)
       do ix=1,lx1
+! two-point flux, r-direction
+         call rzero(scr2pt,toteq*lx1)
          do l=ix+1,lx1
             call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,l,iy,iz),
      >                         waux(1,ix,iy,iz),waux(1,l,iy,iz),
      >                         jat(1,1,ix,iy,iz),jat(1,1,l,iy,iz))
             do eq=1,toteq
-               rhsscr(ix,eq)=rhsscr(ix,eq)+dstrong(ix,l)*flx(eq)
-               rhsscr(l, eq)=rhsscr(l, eq)+dstrong(l,ix)*flx(eq)
-!              rhsscr(ix,eq)=rhsscr(ix,eq)+2.0*dxm1(ix,l)*flx(eq)
-!              rhsscr(l,eq )=rhsscr(l, eq)+2.0*dxm1(l,ix)*flx(eq)
+               scr2pt(eq,ix)=scr2pt(eq,ix)+dstrong(ix,l)*flx(eq)
+               scr2pt(eq,l )=scr2pt(eq,l )+dstrong(l,ix)*flx(eq)
             enddo
          enddo
          do eq=1,toteq
-            rhsscr(ix,eq)=rhsscr(ix,eq)+
-     >                    dstrong(ix,ix)*fcons(ix,iy,iz,1,eq)
-!    >                    2.0*dxm1(ix,ix)*fcons(ix,iy,iz,1,eq)
+            resscr(ix,iy,iz,eq)=resscr(ix,iy,iz,eq)+scr2pt(eq,ix)
          enddo
-      enddo
 
-! diagnostic
-      do ix=1,lx1
-         write(40,'(7e15.7)')
-     >   xm1(ix,iy,iz,e),ym1(ix,iy,iz,e),(rhsscr(ix,eq),eq=1,toteq)
-      enddo
-      write(6,*) 'dstrong'
-      call matout_rowsum(dstrong,lx1,lx1)
-      call exitt
+! two-point flux, s-direction
+         call rzero(scr2pt,toteq*ly1)
+         do l=iy+1,ly1
+            call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,l,iz),
+     >                         waux(1,ix,iy,iz),waux(1,ix,l,iz),
+     >                         jat(1,1,ix,iy,iz),jat(1,1,ix,l,iz))
+            do eq=1,toteq
+               scr2pt(eq,iy)=scr2pt(eq,iy)+dstrong(iy,l)*flx(eq)
+               scr2pt(eq,l )=scr2pt(eq,l )+dstrong(l,iy)*flx(eq)
+            enddo
+         enddo
+         do eq=1,toteq
+            resscr(ix,iy,iz,eq)=resscr(ix,iy,iz,eq)+scr2pt(eq,iy)
+         enddo
+
+      enddo ! ix
       enddo ! iy
       enddo ! iz
 
+      if (if3d) then
+         do iz=1,lz1
+         do iy=1,ly1
+         do ix=1,lx1
+! two-point flux, t-direction. should automatically be zero-trip in 2D,
+! but figured an outer if would be better.
+            call rzero(scr2pt,toteq*lz1)
+            do l=iz+1,lz1
+               call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,iy,l),
+     >                            waux(1,ix,iy,iz),waux(1,ix,iy,l),
+     >                            jat(1,1,ix,iy,iz),jat(1,1,ix,iy,l))
+               do eq=1,toteq
+                  scr2pt(eq,iz)=scr2pt(eq,iz)+dstrong(iz,l)*flx(eq)
+                  scr2pt(eq,l )=scr2pt(eq,l )+dstrong(l,iz)*flx(eq)
+               enddo
+               do eq=1,toteq
+                  resscr(ix,iy,iz,eq)=resscr(ix,iy,iz,eq)+scr2pt(eq,iz)
+               enddo
+            enddo
+         enddo ! ix
+         enddo ! iy
+         enddo ! iz
+      endif    ! if3d
+
+! consistent flux
+      do eq=1,toteq
+         do j=1,ldim
+            l=0
+            do iz=1,lz1
+               diag(3)=dstrong(iz,iz)
+               do iy=1,ly1
+                  diag(2)=dstrong(iy,iy)
+                  do ix=1,lx1
+                     diag(1)=dstrong(ix,ix)
+                     l=l+1
+                     wauxt(l,1)=resscr(ix,iy,iz,eq)+
+     >                                   diag(j)*fcons(ix,iy,iz,j,eq)
+                  enddo
+               enddo
+            enddo
+         enddo
+         call col2   (wauxt,bm1(1,1,1,e)  ,nxyz) ! contravariant rx
+         call invcol2(wauxt,jacm1(1,1,1,e),nxyz) ! has no quad wght
+         call add2(res(1,1,1,e,eq),wauxt,nxyz)
+      enddo
+
       return
       end
+
+!-----------------------------------------------------------------------
 
       subroutine fluxdiv_strong_contra(e)
 ! JH052818. Evaluate flux divergence of totalh (in contravariant basis)

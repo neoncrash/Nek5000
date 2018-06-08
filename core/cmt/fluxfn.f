@@ -203,8 +203,6 @@ C> @}
       pav=0.5*(pl +pr )
       eav=0.5*(ul(5)/rl+ur(5)/rr)
       qav=0.0
-      write(6,'(a32,8e12.4)') '{{r}}{{u}}{{v}}{{w}}{{p}}{{ja}}=',
-     >rav,(uav(j),j=1,3),pav,(jav(j),j=1,3)
       do j=1,ldim
          qav=qav+uav(j)*jav(j)
       enddo
