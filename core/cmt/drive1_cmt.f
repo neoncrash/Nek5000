@@ -180,7 +180,7 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       iflx=iwp+nstate*nfq
       do eq=1,toteq
          ieq=(eq-1)*ndg_face+iflx
-!        call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
+         call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
       dumchars='after_inviscid'
 !     call dumpresidue(dumchars,999)
@@ -207,6 +207,10 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}^{\intercal}\nabla v\}\} \cdot \left[\ma
       dumchars='after_igtu'
 !     call dumpresidue(dumchars,999)
       endif
+
+      do eq=1,toteq
+      call invcol2(res1(1,1,1,1,eq),bm1,lx1*ly1*lz1*lelt)
+      enddo
 
 C> res1+=\f$\int \left(\nabla v\right) \cdot \left(\mathbf{H}^c+\mathbf{H}^d\right)dV\f$ 
 C> for each equation (inner), one element at a time (outer)
@@ -237,6 +241,9 @@ C> for each equation (inner), one element at a time (outer)
                call compute_forcing(e,eq)
             endif
          enddo
+      enddo
+      do eq=1,toteq
+      call col2(res1(1,1,1,1,eq),bm1,lx1*ly1*lz1*lelt)
       enddo
       dumchars='after_elm'
       call dumpresidue(dumchars,999)

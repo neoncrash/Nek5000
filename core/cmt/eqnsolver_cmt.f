@@ -179,35 +179,20 @@ C> Convective volume terms formed and differentiated^T here
       include 'SIZE'
       include 'CMTDATA'
       include 'GEOM'
-      include 'DG'
-      integer lfq,heresize,hdsize
-      parameter (lfq=lx1*lz1*2*ldim*lelt,
-     >                   heresize=nqq*3*lfq,! guarantees transpose of Q+ fits
-     >                   hdsize=toteq*3*lfq) ! might not need ldim
-! not sure if viscous surface fluxes can live here yet
-      common /CMTSURFLX/ flux(heresize),graduf(hdsize)
-      real graduf
       integer e,eq
       external kennedygruber
 
       n=3*lx1*ly1*lz1*toteq
-      nstate=nqq
-      nfq=lx1*lz1*2*ldim*nelt
-      iwm =1
-      iwp =iwm+nstate*nfq
-      iflx=iwp+nstate*nfq
 
       call rzero(convh,n)
       call evaluate_aliased_conv_h(e)
       do eq=1,toteq
       call contravariant_flux(totalh(1,1,eq),convh(1,1,eq),rx(1,1,e),1)
-      call strong_sfc_flux(flux(iflx),totalh(1,1,eq),e,eq)
       enddo
 
-! one-point, aliased
-!     call fluxdiv_strong_contra(e)
 ! two-point, KEP/EC
       call fluxdiv_2point_driver(res1,totalh,e,rx(1,1,e),kennedygruber)
+!     call fluxdiv_2point_noscr(res1,totalh,e,rx(1,1,e),kennedygruber)
 
       return
       end
@@ -219,13 +204,11 @@ C> @}
       include 'GEOM' ! diagnostic. conflicts with ja
       include 'SOLN'
       include 'CMTDATA'
-      include 'DXYZ' ! diagnostic unless I can't get dstrong from DG to work
 ! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
 !          in the contravariant frame, call fluxdiv_2point, and increment res
 !          for e^th element.
 !          Metric terms Ja probably shouldn't be an argument but whatever.
 !          vfluxfunction is an argument in the spirit of Gassner, Winters & Kopriva
-!          res is LOCAL RHS (not indexed by e)
       integer e,eq
       external vfluxfunction
       real res(lx1,ly1,lz1,lelt,toteq) ! CMTDATA lurks
@@ -270,8 +253,6 @@ C> @}
      >                            waux(1,ix,iy,iz),waux(1,l,iy,iz),
      >                            jat(1,1,ix,iy,iz),jat(1,1,l,iy,iz))
                do eq=1,toteq
-!           res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+dstrong(ix,l)*flx(eq)
-!           res(l,iy,iz,e,eq)=res(l,iy,iz,e,eq)+dstrong(l,ix)*flx(eq)
                   rhsscr(ix,eq)=rhsscr(ix,eq)+dstrong(ix,l)*flx(eq)
                   rhsscr(l,eq)=rhsscr(l,eq)+dstrong(l,ix)*flx(eq)
                enddo
@@ -279,7 +260,6 @@ C> @}
             do eq=1,toteq
                rhsscr(ix,eq)=rhsscr(ix,eq)+
      >                       dstrong(ix,ix)*fcons(ix,iy,iz,1,eq)
-!    >                    2.0*dxm1(ix,ix)*fcons(ix,iy,iz,1,eq)
             enddo
          enddo
          do eq=1,toteq
@@ -287,6 +267,7 @@ C> @}
          enddo
       enddo ! iy
       enddo ! iz
+
 
 ! consider repacking ut and waux with iy in second place
 ! s-direction
@@ -297,10 +278,8 @@ C> @}
             do l=iy+1,ly1
                call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,l,iz),
      >                            waux(1,ix,iy,iz),waux(1,ix,l,iz),
-     >                            jat(1,1,ix,iy,iz),jat(1,1,ix,l,iz))
+     >                            jat(1,2,ix,iy,iz),jat(1,2,ix,l,iz))
                do eq=1,toteq
-!           res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+dstrong(ix,l)*flx(eq)
-!           res(l,iy,iz,e,eq)=res(l,iy,iz,e,eq)+dstrong(l,ix)*flx(eq)
                   rhsscr(iy,eq)=rhsscr(iy,eq)+dstrong(iy,l)*flx(eq)
                   rhsscr(l,eq)=rhsscr(l,eq)+dstrong(l,iy)*flx(eq)
                enddo
@@ -308,7 +287,6 @@ C> @}
             do eq=1,toteq
                rhsscr(iy,eq)=rhsscr(iy,eq)+
      >                       dstrong(iy,iy)*fcons(ix,iy,iz,2,eq)
-!    >                    2.0*dxm1(ix,ix)*fcons(ix,iy,iz,1,eq)
             enddo
          enddo
          do eq=1,toteq
@@ -330,7 +308,7 @@ C> @}
             do l=iz+1,lz1
                call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,iy,l),
      >                            waux(1,ix,iy,iz),waux(1,ix,iy,l),
-     >                            jat(1,1,ix,iy,iz),jat(1,1,ix,iy,l))
+     >                            jat(1,3,ix,iy,iz),jat(1,3,ix,iy,l))
                do eq=1,toteq
                   rhsscr(iz,eq)=rhsscr(iz,eq)+dstrong(iz,l)*flx(eq)
                   rhsscr(l,eq)=rhsscr(l,eq)+dstrong(l,iz)*flx(eq)
