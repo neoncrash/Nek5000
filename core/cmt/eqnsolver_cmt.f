@@ -403,7 +403,7 @@ C> @}
          do l=iy+1,ly1
             call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,l,iz),
      >                            waux(1,ix,iy,iz),waux(1,ix,l,iz),
-     >                            jat(1,1,ix,iy,iz),jat(1,1,ix,l,iz))
+     >                            jat(1,2,ix,iy,iz),jat(1,2,ix,l,iz))
             do eq=1,toteq
             res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+dstrong(iy,l)*flx(eq)
             res(iy,l,iz,e,eq)=res(ix,l,iz,e,eq)+dstrong(l,iy)*flx(eq)
@@ -417,7 +417,7 @@ C> @}
          do l=iz+1,lz1
             call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,iy,l),
      >                            waux(1,ix,iy,iz),waux(1,ix,iy,l),
-     >                            jat(1,1,ix,iy,iz),jat(1,1,ix,iy,l))
+     >                            jat(1,3,ix,iy,iz),jat(1,3,ix,iy,l))
             do eq=1,toteq
             res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+dstrong(iz,l)*flx(eq)
             res(iy,iy,l,e,eq)=res(ix,iy,l,e,eq)+dstrong(l,iz)*flx(eq)
