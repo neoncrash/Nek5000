@@ -180,7 +180,7 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       iflx=iwp+nstate*nfq
       do eq=1,toteq
          ieq=(eq-1)*ndg_face+iflx
-         call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
+!        call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
       dumchars='after_inviscid'
 !     call dumpresidue(dumchars,999)
@@ -250,7 +250,7 @@ C> res1-=\f$\oint \mathbf{H}^{c}\cdot\mathbf{n}dA\f$ on face points
       iflx=iwp+nstate*nfq
       do eq=1,toteq
          ieq=(eq-1)*ndg_face+iflx
-         call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
+!        call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
       dumchars='after_strong'
 !     call dumpresidue(dumchars,999)
