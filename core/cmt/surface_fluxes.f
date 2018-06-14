@@ -21,9 +21,12 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       parameter (lfq=lx1*lz1*2*ldim*lelt,
      >                   heresize=nqq*3*lfq,! guarantees transpose of Q+ fits
      >                   hdsize=toteq*3*lfq) ! might not need ldim
+!    >                   hdsize=(toteq*3-1)*lfq) ! might not need ldim
 ! JH070214 OK getting different answers whether or not the variables are
 !          declared locally or in common blocks. switching to a different
 !          method of memory management that is more transparent to me.
+!     common /CMTSURFLX/ fatface(heresize),jface(lfq),notyet(hdsize)
+!     real fatface,jface,notyet
       common /CMTSURFLX/ fatface(heresize),notyet(hdsize)
       real fatface,notyet
       integer eq
@@ -63,6 +66,7 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
 
       call InviscidBC(fatface(iwm),fatface(iwp),nstate)
 
+!     call InviscidFlux(jface,fatface(iwm),fatface(iwp),fatface(iflx)
       call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx)
      >                 ,nstate,toteq)
 
@@ -160,6 +164,7 @@ C> @}
 !-------------------------------------------------------------------------------
 
       subroutine InviscidFlux(wminus,wplus,flux,nstate,nflux)
+!     subroutine InviscidFlux(jface,wminus,wplus,flux,nstate,nflux)
 !-------------------------------------------------------------------------------
 ! JH091514 A fading copy of RFLU_ModAUSM.F90 from RocFlu
 !-------------------------------------------------------------------------------
@@ -178,6 +183,7 @@ C> @}
 ! Arguments
 ! ==============================================================================
       integer nstate,nflux
+!     real jface(lx1*lz1,2*ldim,nelt)
       real wminus(lx1*lz1,2*ldim,nelt,nstate),
      >     wplus(lx1*lz1,2*ldim,nelt,nstate),
      >     flux(lx1*lz1,2*ldim,nelt,nflux)
@@ -315,6 +321,7 @@ C> @}
 
             call copy(phl,wminus(1,f,e,iph),nxz)
 
+!           call copy(jaco_f,jface(1,f,e),nxz) 
             call copy(jaco_f,area(1,1,f,e),nxz) 
          endif
          call rzero(fs,nxzd) ! moving grid stuff later

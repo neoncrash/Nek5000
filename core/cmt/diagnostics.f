@@ -156,8 +156,8 @@ c      write(6,*)wfnav(1:i1),'.',citer(is:il)
         do e = 1,nelt
           write(11,*)'zone T="',e,'",i=',lx1,',j=',ly1,',k=',lz1
           do i=1,nxyz1
-             do eq=1,toteq
-                rhseqs(eq) = res1(i,1,1,e,eq)/bm1(i,1,1,e)
+1            do eq=1,toteq
+                rhseqs(eq) = res1(i,1,1,e,eq)!/bm1(i,1,1,e)
              enddo
           write(11,101)xm1(i,1,1,e),ym1(i,1,1,e),zm1(i,1,1,e)
      $         ,rhseqs(1),rhseqs(2),rhseqs(3),rhseqs(4)

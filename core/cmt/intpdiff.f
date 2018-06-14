@@ -121,12 +121,12 @@ C> by nek5000
       include 'WZ'
       include 'MASS'
 
-      integer lfq,heresize,hdsize
-      parameter (lfq=lx1*lz1*2*ldim*lelt,
-     >                   heresize=18*3*lfq,! guarantees transpose of Q+ fits
-     >                   hdsize=(toteq*3-1)*lfq) ! might not need ldim
-      common /CMTSURFLX/ fatface(heresize),jface(lfq),graduf(hdsize)
-      real fatface,jface,graduf
+!     integer lfq,heresize,hdsize
+!     parameter (lfq=lx1*lz1*2*ldim*lelt,
+!    >                   heresize=18*3*lfq,! guarantees transpose of Q+ fits
+!    >                   hdsize=(toteq*3-1)*lfq) ! might not need ldim
+!     common /CMTSURFLX/ fatface(heresize),jface(lfq),graduf(hdsize)
+!     real fatface,jface,graduf
       parameter (ldg=lx1**3,lwkd=4*lx1*lx1)
       common /dgradl/d(ldg),dt(ldg),dg(ldg),dgt(ldg),jgl(ldg),jgt(ldg)
      > ,wkd(lwkd)
@@ -196,7 +196,7 @@ C> by nek5000
       dstrong(lx1,lx1) = 2.0*d(ilx1+lx1**2-1)-1.0/wxm1(lx1)
       call transpose(dstrongt,lx1,dstrong,lx1)
 
-      lcmtsurflx=0
+!     lcmtsurflx=0
       do e=1,nelt
          m=ngeo-1
 ! check for curved faces here someday and set ngeo on the fly,
@@ -367,12 +367,12 @@ C> by nek5000
             do ix=1,lx1
                anew=0.0
                l=l+1
-               lcmtsurflx=lcmtsurflx+1
+!              lcmtsurflx=lcmtsurflx+1
                do i=1,ldim
                   anew=anew+jaface(l,f,i,ndir(f))**2
                enddo
                anew=sqrt(anew)
-               jface(lcmtsurflx)=anew
+!              jface(lcmtsurflx)=anew
                unx(l,1,f,e)=jaface(l,f,1,ndir(f))/anew*nsgn(f)
                uny(l,1,f,e)=jaface(l,f,2,ndir(f))/anew*nsgn(f)
                if (if3d) unz(l,1,f,e)=jaface(l,f,3,ndir(f))/anew*nsgn(f)
@@ -395,6 +395,7 @@ C> by nek5000
          call col3(bm1(1,1,1,e),jacm1(1,1,1,e),w3m1,nxyz)
 ! and we need this for strong-form discontinuous surface fluxes computed
 ! from contravariant volume fluxes
+! JH061318 Actually, we don't need this for strong form. Dstrong for life.
          do j=1,lz1
          do i=1,lx1
             w2m1(i,j)=wxm1(i)*wzm1(j)
