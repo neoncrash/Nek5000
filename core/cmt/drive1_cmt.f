@@ -182,14 +182,6 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
          ieq=(eq-1)*ndg_face+iflx
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
-! JH061318 I'm off by a Jacobian on faces. This is the only way I could get this to
-!          work. Ideally, we'd store jface in /CMTSURFLX/ and do the numerical fluxes
-!          contravariant as well.
-      do e=1,nelt
-      do eq=1,toteq
-         call invcol2(res1(1,1,1,e,eq),w3m1,lx1*ly1*lz1)
-      enddo
-      enddo
       dumchars='after_inviscid'
 !     call dumpresidue(dumchars,999)
 
