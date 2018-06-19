@@ -202,6 +202,7 @@ C> @}
       include 'SIZE'
       include 'DG'
       include 'GEOM' ! diagnostic. conflicts with ja
+      include 'DXYZ' ! diagnostic. dstrong, plz work
       include 'SOLN'
       include 'CMTDATA'
 ! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
@@ -213,7 +214,7 @@ C> @}
       external vfluxfunction
       real res(lx1,ly1,lz1,lelt,toteq) ! CMTDATA lurks
       real ja(lx1,ly1,lz1,ldim,ldim)   ! rst outermost
-      real fcons(lx1,ly1,lz1,ldim,toteq)   ! consistent ``1-point'' flux
+      real fcons(lx1,ly1,lz1,3,toteq)   ! consistent ``1-point'' flux
 ! scratch element for extra variables (hardcoded) and conserved variables U
 ! transposed to quantity-innermost. unvectorizable?
       common /scrns/ waux (4,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1),
@@ -242,6 +243,9 @@ C> @}
             enddo
          enddo
       enddo
+! diagnostic bait and switch
+      call copy(dstrong,dxm1,lx1**2)
+      call cmult(dstrong,2.0,lx1**2)
 
 ! r-direction
       do iz=1,lz1
@@ -326,7 +330,7 @@ C> @}
             enddo
          enddo
       enddo ! ix
-      enddo ! iz
+      enddo ! iy
       endif ! if3d
 
       return
@@ -406,7 +410,7 @@ C> @}
      >                            jat(1,2,ix,iy,iz),jat(1,2,ix,l,iz))
             do eq=1,toteq
             res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+dstrong(iy,l)*flx(eq)
-            res(iy,l,iz,e,eq)=res(ix,l,iz,e,eq)+dstrong(l,iy)*flx(eq)
+            res(ix,l,iz,e,eq)=res(ix,l,iz,e,eq)+dstrong(l,iy)*flx(eq)
             enddo
          enddo
          do eq=1,toteq
@@ -420,7 +424,7 @@ C> @}
      >                            jat(1,3,ix,iy,iz),jat(1,3,ix,iy,l))
             do eq=1,toteq
             res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+dstrong(iz,l)*flx(eq)
-            res(iy,iy,l,e,eq)=res(ix,iy,l,e,eq)+dstrong(l,iz)*flx(eq)
+            res(ix,iy,l,e,eq)=res(ix,iy,l,e,eq)+dstrong(l,iz)*flx(eq)
             enddo
          enddo
          do eq=1,toteq

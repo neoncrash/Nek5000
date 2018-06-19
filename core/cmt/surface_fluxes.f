@@ -244,6 +244,8 @@ C> @}
 !     endif
       do e=1,nelt
       do f=1,nface
+! diagnostic
+           call facind (kx1,kx2,ky1,ky2,kz1,kz2,lx1,ly1,lz1,f)
 
 ! JH021717 Finally corrected BC wrongheadedness. Riemann solver handles
 !          all fluxes with even the slightest Dirichlet interpretation,
@@ -329,8 +331,12 @@ C> @}
 
          call AUSM_FluxFunction(nxzd,nx,ny,nz,jaco_f,fs,rl,ul,vl,wl,pl,
      >                          al,tl,rr,ur,vr,wr,pr,ar,tr,flx,cpl,cpr)
-         write(6,'(a11,6e15.7)') 'after ausm ',(flx(2,j),j=1,toteq),
-     >   jaco_f(2)
+! diagnostic
+         do i=1,nxz
+            write(44,'(2i3,a11,8e15.7)') e,f,'after ausm ',
+     >   (flx(i,j),j=1,toteq),jaco_f(i)
+         enddo
+! diagnostic
 
          do j=1,toteq
             call col2(flx(1,j),phl,nxzd)

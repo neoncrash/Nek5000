@@ -170,6 +170,7 @@ C> Store it in res1
 C> Restrict via \f$\mathbf{E}\f$ to get primitive and conserved variables
 C> on interior faces \f$\mathbf{U}^-\f$ and neighbor faces
 C> \f$\mathbf{U}^+\f$; store in CMTSURFLX
+      if (1 .eq. 2) then
       call fluxes_full_field
 
 C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
@@ -185,7 +186,6 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       dumchars='after_inviscid'
 !     call dumpresidue(dumchars,999)
 
-      if (1 .eq. 2) then
                !                   -
       iuj=iflx ! overwritten with U -{{U}}
 !-----------------------------------------------------------------------
