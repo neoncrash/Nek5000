@@ -191,14 +191,109 @@ C> Convective volume terms formed and differentiated^T here
       enddo
 
 ! two-point, KEP/EC
-      call fluxdiv_2point_driver(res1,totalh,e,rx(1,1,e),kennedygruber)
-!     call fluxdiv_2point_noscr(res1,totalh,e,rx(1,1,e),kennedygruber)
+!     call fluxdiv_2point_slow(res1,e,rx(1,1,e),kennedygruber)
+!     call fluxdiv_2point_scr(res1,totalh,e,rx(1,1,e),kennedygruber)
+      call fluxdiv_2point_noscr(res1,totalh,e,rx(1,1,e),kennedygruber)
 
       return
       end
 C> @}
 
-      subroutine fluxdiv_2point_driver(res,fcons,e,ja,vfluxfunction)
+      subroutine fluxdiv_2point_slow(res,e,ja,vfluxfunction)
+      include 'SIZE'
+      include 'DG'
+      include 'GEOM' ! diagnostic. conflicts with ja
+      include 'DXYZ' ! diagnostic. dstrong, plz work
+      include 'SOLN'
+      include 'CMTDATA'
+! JH062018 two-point energy-preserving/SBP flux divergence volume integral, slow and naive
+      integer e,eq
+      external vfluxfunction
+      real res(lx1,ly1,lz1,lelt,toteq) ! CMTDATA lurks
+      real ja(lx1,ly1,lz1,ldim,ldim)   ! rst outermost
+! scratch element for extra variables (hardcoded) and conserved variables U
+! transposed to quantity-innermost. unvectorizable?
+      common /scrns/ waux (4,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1),
+     >               wauxt(lx1*ly1*lz1,4),jat(3,3,lx1,ly1,lz1)
+      real waux,ut,wauxt,jat
+      real flx(5)
+
+      nxyz=lx1*ly1*lz1
+      call copy(wauxt(1,1),vx(1,1,1,e),nxyz)
+      call copy(wauxt(1,2),vy(1,1,1,e),nxyz)
+      call copy(wauxt(1,3),vz(1,1,1,e),nxyz)
+      call copy(wauxt(1,4),pr(1,1,1,e),nxyz)
+      call transpose(waux,4,wauxt,nxyz)
+      call transpose(ut,toteq,u(1,1,1,1,e),nxyz)
+
+      call rzero(jat,9*lx1*ly1*lz1)
+      do j=1,ldim
+         do i=1,ldim
+            do iz=1,lz1
+            do iy=1,ly1
+            do ix=1,lx1
+               jat(i,j,ix,iy,iz)=ja(ix,iy,iz,i,j)
+            enddo
+            enddo
+            enddo
+         enddo
+      enddo
+! diagnostic bait and switch
+      call copy(dstrong,dxm1,lx1**2)
+      call cmult(dstrong,2.0,lx1**2)
+
+      do iz=1,lz1
+      do iy=1,ly1
+      do ix=1,lx1
+! r-direction
+         do l=1,lx1
+            call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,l,iy,iz),
+     >                         waux(1,ix,iy,iz),waux(1,l,iy,iz),
+     >                         jat(1,1,ix,iy,iz),jat(1,1,l,iy,iz))
+            do eq=1,toteq
+               res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                   dstrong(ix,l)*flx(eq)
+            enddo
+         enddo
+! s-direction
+         do l=1,ly1
+            call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,l,iz),
+     >                         waux(1,ix,iy,iz),waux(1,ix,l,iz),
+     >                         jat(1,2,ix,iy,iz),jat(1,2,ix,l,iz))
+            do eq=1,toteq
+               res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                   dstrong(iy,l)*flx(eq)
+            enddo
+         enddo
+      enddo
+      enddo
+      enddo
+
+      if (lz1.gt.1) then
+      do iz=1,lz1
+      do iy=1,ly1
+      do ix=1,lx1
+! t-direction
+         do l=1,lz1
+            call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,iy,l),
+     >                         waux(1,ix,iy,iz),waux(1,ix,iy,l),
+     >                         jat(1,3,ix,iy,iz),jat(1,3,ix,iy,l))
+            do eq=1,toteq
+               res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                   dstrong(iz,l)*flx(eq)
+            enddo
+         enddo
+      enddo
+      enddo
+      enddo
+      endif
+
+      return
+      end
+
+!-----------------------------------------------------------------------
+
+      subroutine fluxdiv_2point_scr(res,fcons,e,ja,vfluxfunction)
       include 'SIZE'
       include 'DG'
       include 'GEOM' ! diagnostic. conflicts with ja
@@ -274,6 +369,14 @@ C> @}
 
 
 ! consider repacking ut and waux with iy in second place
+! diagnostic kg is consistent in r and s
+!            call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,iy,iz),
+!     >                            waux(1,ix,iy,iz),waux(1,ix,iy,iz),
+!     >                            jat(1,2,ix,iy,iz),jat(1,2,ix,iy,iz))
+!               write(60+eq,'(5e15.7)')
+!     >xm1(ix,iy,iz,e),ym1(ix,iy,iz,e),flx(eq),fcons(ix,iy,iz,2,eq),
+!     >abs(flx(eq)-fcons(ix,iy,iz,2,eq))
+! diagnostic
 ! s-direction
       do iz=1,lz1
       do ix=1,lx1
@@ -303,6 +406,7 @@ C> @}
       enddo ! iz
 
       if (lz1.gt.1) then
+      write(6,*) 'duh sir t-direction'
 ! consider repacking ut and waux with iz in second place
 ! t-direction
       do iy=1,ly1
@@ -336,6 +440,8 @@ C> @}
       return
       end
 
+!-----------------------------------------------------------------------
+
       subroutine fluxdiv_2point_noscr(res,fcons,e,ja,vfluxfunction)
       include 'SIZE'
       include 'DG'
@@ -344,7 +450,7 @@ C> @}
       include 'CMTDATA'
       include 'DXYZ' ! diagnostic unless I can't get dstrong from DG to work
 ! JH061118 Access 3D res array directly without regard to stride. compare
-!          performance to existing driver
+!          performance to existing scr
 ! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
 !          in the contravariant frame, call fluxdiv_2point, and increment res
 !          for e^th element.
@@ -355,7 +461,7 @@ C> @}
       external vfluxfunction
       real res(lx1,ly1,lz1,lelt,toteq) ! CMTDATA lurks
       real ja(lx1,ly1,lz1,ldim,ldim)   ! rst outermost
-      real fcons(lx1,ly1,lz1,ldim,toteq)   ! consistent ``1-point'' flux
+      real fcons(lx1,ly1,lz1,3,toteq)   ! consistent ``1-point'' flux
 ! scratch element for extra variables (hardcoded) and conserved variables U
 ! transposed to quantity-innermost. unvectorizable?
       common /scrns/ waux (4,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1),
@@ -398,11 +504,13 @@ C> @}
             res(l,iy,iz,e,eq)=res(l,iy,iz,e,eq)+dstrong(l,ix)*flx(eq)
             enddo
          enddo
+
          do eq=1,toteq
             res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
      >                       dstrong(ix,ix)*fcons(ix,iy,iz,1,eq)
-!    >                    2.0*dxm1(ix,ix)*fcons(ix,iy,iz,1,eq)
+!!    >                    2.0*dxm1(ix,ix)*fcons(ix,iy,iz,1,eq)
          enddo
+
 ! s-direction
          do l=iy+1,ly1
             call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,l,iz),
@@ -417,6 +525,7 @@ C> @}
             res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
      >                       dstrong(iy,iy)*fcons(ix,iy,iz,2,eq)
          enddo
+
 ! t-direction
          do l=iz+1,lz1
             call vfluxfunction(flx,ut(1,ix,iy,iz),ut(1,ix,iy,l),
@@ -431,6 +540,7 @@ C> @}
             res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
      >                       dstrong(iz,iz)*fcons(ix,iy,iz,3,eq)
          enddo
+
       enddo ! ix
       enddo ! iy
       enddo ! iz
