@@ -247,10 +247,6 @@ C> by nek5000
      >                jgt(jref2n),if3d,w,ldw)
             call chkjac(jacm1(1,1,1,e),nxyz,e,xm1(i,1,1,e),ym1(i,1,1,e),
      >               zm1(i,1,1,e),ldim,ierr)
-! diagnostic
-            do i=1,nxyz
-            write(23,*) 'jacmi=',1.0/jacm1(i,1,1,e),jacmi(i,e)
-            enddo
             if (ierr .ne. 0) then
                call exitti('failed jacobian check in element $',e)
             endif
@@ -344,10 +340,6 @@ C> by nek5000
      >                jgt(jref2n),if3d,w,ldw)
             call chkjac(jacm1(1,1,1,e),nxyz,e,xm1(1,1,1,e),ym1(1,1,1,e),
      >               zm1(1,1,1,e),ldim,ierr)
-! diagnostic
-            do i=1,nxyz
-            write(23,*) 'jacmi=',1.0/jacm1(i,1,1,e),jacmi(i,e)
-            enddo
             if (ierr .ne. 0) then
                call exitti('failed jacobian check in element $',e)
             endif
@@ -386,9 +378,6 @@ C> by nek5000
                enddo
                anew=sqrt(anew)
                jface(lcmtsurflx)=anew*wght
-! diagnostic
-               write(43,'(3i3,a6,e15.7)') e,f,ix,'a*L+-=',
-     >         jface(lcmtsurflx)
                unx(l,1,f,e)=jaface(l,f,1,ndir(f))/anew*nsgn(f)
                uny(l,1,f,e)=jaface(l,f,2,ndir(f))/anew*nsgn(f)
                if (if3d) unz(l,1,f,e)=jaface(l,f,3,ndir(f))/anew*nsgn(f)
@@ -397,12 +386,6 @@ C> by nek5000
 ! we're taking over this town
                area(ix,iz,f,e)=anew*wxm1(ix)*wzm1(iz)
 
-!              unxnew=jaface(l,f,1,ndir(f))/anew*nsgn(f)
-!              unynew=jaface(l,f,2,ndir(f))/anew*nsgn(f)
-!              if (if3d) unznew=jaface(l,f,3,ndir(f))/anew*nsgn(f)
-!              write(6,'(2i3,a4,2e17.5)') f,l,'old ',unx(l,1,f,e),
-!    >                                            uny(l,1,f,e)
-!              write(6,'(2i3,a4,2e17.5)') f,l,'new ',unxnew,unynew
             enddo
             enddo
          enddo

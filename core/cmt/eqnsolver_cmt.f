@@ -191,7 +191,6 @@ C> Convective volume terms formed and differentiated^T here
       enddo
 
 ! two-point, KEP/EC
-!     call fluxdiv_2point_slow(res1,e,rx(1,1,e),kennedygruber)
 !     call fluxdiv_2point_scr(res1,totalh,e,rx(1,1,e),kennedygruber)
       call fluxdiv_2point_noscr(res1,totalh,e,rx(1,1,e),kennedygruber)
 
@@ -203,7 +202,6 @@ C> @}
       include 'SIZE'
       include 'DG'
       include 'GEOM' ! diagnostic. conflicts with ja
-      include 'DXYZ' ! diagnostic. dstrong, plz work
       include 'SOLN'
       include 'CMTDATA'
 ! JH062018 two-point energy-preserving/SBP flux divergence volume integral, slow and naive
@@ -238,9 +236,6 @@ C> @}
             enddo
          enddo
       enddo
-! diagnostic bait and switch
-      call copy(dstrong,dxm1,lx1**2)
-      call cmult(dstrong,2.0,lx1**2)
 
       do iz=1,lz1
       do iy=1,ly1
@@ -296,8 +291,6 @@ C> @}
       subroutine fluxdiv_2point_scr(res,fcons,e,ja,vfluxfunction)
       include 'SIZE'
       include 'DG'
-      include 'GEOM' ! diagnostic. conflicts with ja
-      include 'DXYZ' ! diagnostic. dstrong, plz work
       include 'SOLN'
       include 'CMTDATA'
 ! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
@@ -338,9 +331,6 @@ C> @}
             enddo
          enddo
       enddo
-! diagnostic bait and switch
-      call copy(dstrong,dxm1,lx1**2)
-      call cmult(dstrong,2.0,lx1**2)
 
 ! r-direction
       do iz=1,lz1
@@ -445,10 +435,8 @@ C> @}
       subroutine fluxdiv_2point_noscr(res,fcons,e,ja,vfluxfunction)
       include 'SIZE'
       include 'DG'
-      include 'GEOM' ! diagnostic. conflicts with ja
       include 'SOLN'
       include 'CMTDATA'
-      include 'DXYZ' ! diagnostic unless I can't get dstrong from DG to work
 ! JH061118 Access 3D res array directly without regard to stride. compare
 !          performance to existing scr
 ! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
@@ -508,7 +496,6 @@ C> @}
          do eq=1,toteq
             res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
      >                       dstrong(ix,ix)*fcons(ix,iy,iz,1,eq)
-!!    >                    2.0*dxm1(ix,ix)*fcons(ix,iy,iz,1,eq)
          enddo
 
 ! s-direction
