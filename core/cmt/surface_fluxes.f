@@ -10,6 +10,7 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
 ! JH091514 renamed from "surface_fluxes_inviscid" since it handles all fluxes
 !          that we compute from variables stored for the whole field (as
 !          opposed to one element at a time).
+! JH070918 redone for two-point fluxes 
 !-----------------------------------------------------------------------
       include 'SIZE'
       include 'DG'
@@ -38,40 +39,34 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       iwp =iwm+nstate*nfq
       iflx=iwp+nstate*nfq
 
-      call fillq(irho,vtrans,fatface(iwm),fatface(iwp))
-      call fillq(iux, vx,    fatface(iwm),fatface(iwp))
-      call fillq(iuy, vy,    fatface(iwm),fatface(iwp))
-      call fillq(iuz, vz,    fatface(iwm),fatface(iwp))
-      call fillq(ipr, pr,    fatface(iwm),fatface(iwp))
-      call fillq(ithm,t,     fatface(iwm),fatface(iwp))
-      call fillq(isnd,csound,fatface(iwm),fatface(iwp))
-      call fillq(iph, phig,  fatface(iwm),fatface(iwp))
-      call fillq(icvf,vtrans(1,1,1,1,icv),fatface(iwm),fatface(iwp))
-      call fillq(icpf,vtrans(1,1,1,1,icp),fatface(iwm),fatface(iwp))
-      call fillq(imuf, vdiff(1,1,1,1,imu), fatface(iwm),fatface(iwp))
-      call fillq(ikndf,vdiff(1,1,1,1,iknd),fatface(iwm),fatface(iwp))
-      call fillq(ilamf,vdiff(1,1,1,1,ilam),fatface(iwm),fatface(iwp))
+! fill parameter vector
 
-      i_cvars=(iu1-1)*nfq+1
-      do eq=1,toteq
-         call faceu(eq,fatface(i_cvars))
-! JH080317 at least get the product rule right until we figure out how
-!          we want the governing equations to look
-         call invcol2(fatface(i_cvars),fatface(iwm+nfq*(iph-1)),nfq)
-         i_cvars=i_cvars+nfq
-      enddo
+! probably want to use volume-fraction-weighted density
+!     i_cvars=(iwm-1)*nfq+1
+!     do eq=1,toteq
+!        call faceu(eq,fatface(i_cvars))
+!        call invcol2(fatface(i_cvars),fatface(iwm+nfq*(iph-1)),nfq)
+!        i_cvars=i_cvars+nfq
+!     enddo
 
-      call face_state_commo(fatface(iwm),fatface(iwp),nfq,nstate
-     >                     ,dg_hndl)
+      call fillq(irho,vtrans,fatface(iwm),fatface(iflx))
+      call fillq(iux, vx,    fatface(iwm),fatface(iflx))
+      call fillq(iuy, vy,    fatface(iwm),fatface(iflx))
+      call fillq(iuz, vz,    fatface(iwm),fatface(iflx))
+      call fillq(ipr, pr,    fatface(iwm),fatface(iflx))
+      call fillq(ithm,t,     fatface(iwm),fatface(iflx))
+      call fillq(isnd,csound,fatface(iwm),fatface(iflx))
+      call fillq(iph, phig,  fatface(iwm),fatface(iflx))
+!     call fillq(imuf, vdiff(1,1,1,1,imu), fatface(iwm),fatface(iflx))
+!     call fillq(ikndf,vdiff(1,1,1,1,iknd),fatface(iwm),fatface(iflx))
+!     call fillq(ilamf,vdiff(1,1,1,1,ilam),fatface(iwm),fatface(iflx))
 
-      call InviscidBC(fatface(iwm),fatface(iwp),nstate)
+      call InviscidBC(fatface(iwm),fatface(iflx),nstate)
 
-      call InviscidFlux(jface,fatface(iwm),fatface(iwp),fatface(iflx)
+      call dg_face_avg(fatface(iwm),nfq,nstate,dg_hndl)
+
+      call kennedy_gruber_avg(jface,fatface(iwm),fatface(iflx)
      >                 ,nstate,toteq)
-!     call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx)
-
-!     call face_flux_commo(fatface(iflx),fatface(iflx),ndg_face,toteq,
-!    >                     flux_hndl) ! for non-symmetric gs_op someday
 
 C> @}
 
@@ -118,6 +113,32 @@ C> @}
          wminus(i,ivar)=yourface(i,1,1,1)
       enddo
 
+      return
+      end
+
+!-----------------------------------------------------------------------
+
+      subroutine dg_face_avg(mine,nf,nstate,handle)
+
+! JH060414 if we ever want to be more intelligent about who gets what,
+!          who gives what and who does what, this is the place where all
+!          that is done. At the very least, gs_op may need the transpose
+!          flag set to 1. Who knows. Everybody duplicates everything for
+!          now.
+! JH070714 figure out gs_op_fields, many, vec, whatever (and the
+!          corresponding setup) to get this done for the transposed
+!          ordering of state variables. I want variable innermost, not
+!          grid point.
+
+      integer handle,nf,nstate ! intent(in)
+      real mine(*)
+
+      ntot=nf*nstate
+      call cmult(mine,0.5,ntot)
+!-----------------------------------------------------------------------
+! operation flag is second-to-last arg, an integer
+!                                                1 ==> +
+      call fgslib_gs_op_fields(handle,yours,nf,nstate,1,1,0)
       return
       end
 
