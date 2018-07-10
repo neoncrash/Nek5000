@@ -4,7 +4,7 @@ C> \ingroup isurf
 C> @{
 C> Restrict and copy face data and compute inviscid numerical flux 
 C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
-      subroutine fluxes_full_field
+      subroutine fluxes_full_field(roe_vector)
 !-----------------------------------------------------------------------
 ! JH060314 First, compute face fluxes now that we have the primitive variables
 ! JH091514 renamed from "surface_fluxes_inviscid" since it handles all fluxes
@@ -30,46 +30,59 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       real fatface,jface,notyet
 !     common /CMTSURFLX/ fatface(heresize),notyet(hdsize)
 !     real fatface,notyet
+      external roe_vector
       integer eq
       character*32 cname
       nfq=lx1*lz1*2*ldim*nelt
-      nstate = nqq
+      nstate = 
 ! where different things live
       iwm =1
       iwp =iwm+nstate*nfq
       iflx=iwp+nstate*nfq
 
-! fill parameter vector
+! fill parameter vector z for two-point flux applied at faces
+! start with primitive variables at faces
 
-! probably want to use volume-fraction-weighted density
-!     i_cvars=(iwm-1)*nfq+1
-!     do eq=1,toteq
-!        call faceu(eq,fatface(i_cvars))
-!        call invcol2(fatface(i_cvars),fatface(iwm+nfq*(iph-1)),nfq)
-!        i_cvars=i_cvars+nfq
-!     enddo
-
-      call fillq(irho,vtrans,fatface(iwm),fatface(iflx))
+! just take volume-fraction-weighted density and energy
+! until we can verify correct multiphase two-point fluxes
+      call faceu(1,fatface(iwm+nfq*(irho-1)))
+      call faceu(toteq,fatface(iwm+nfq*(ithm-1)))
       call fillq(iux, vx,    fatface(iwm),fatface(iflx))
       call fillq(iuy, vy,    fatface(iwm),fatface(iflx))
       call fillq(iuz, vz,    fatface(iwm),fatface(iflx))
       call fillq(ipr, pr,    fatface(iwm),fatface(iflx))
-      call fillq(ithm,t,     fatface(iwm),fatface(iflx))
-      call fillq(isnd,csound,fatface(iwm),fatface(iflx))
       call fillq(iph, phig,  fatface(iwm),fatface(iflx))
-!     call fillq(imuf, vdiff(1,1,1,1,imu), fatface(iwm),fatface(iflx))
-!     call fillq(ikndf,vdiff(1,1,1,1,iknd),fatface(iwm),fatface(iflx))
-!     call fillq(ilamf,vdiff(1,1,1,1,ilam),fatface(iwm),fatface(iflx))
 
-      call InviscidBC(fatface(iwm),fatface(iflx),nstate)
+! fill Dirichlet BC and mask
+!     call InviscidBC(fatface(iwm),fatface(iflx),nstate)
 
+! q- -> z-. Does nothing for Kennedy-Gruber, Pirozzoli, and most energy-
+!           conserving fluxes
+      call roe_vector(fatface(iwm),nfq,nstate)
+
+! z- -> z^, which is {{z}} for Kennedy-Gruber, Pirozzoli, and some parts
+!           of other energy-conserving fluxes.
       call dg_face_avg(fatface(iwm),nfq,nstate,dg_hndl)
 
-      call kennedy_gruber_avg(jface,fatface(iwm),fatface(iflx)
+! z^ -> F#. Some parameter-vector stuff can go here too as long as it's all
+!           local to a given element.
+      call fsharp(jface,fatface(iwm),fatface(iflx)
      >                 ,nstate,toteq)
+
+! now for stabilization. Local Lax-Friedrichs for 
+      call fillq(isnd,csound,fatface(iwm),fatface(iflx))
+
+      call llf
 
 C> @}
 
+      return
+      end
+
+!-----------------------------------------------------------------------
+
+      subroutine do_nothing(fatface,nf,ns)
+      real fatface(*)
       return
       end
 
@@ -138,7 +151,7 @@ C> @}
 !-----------------------------------------------------------------------
 ! operation flag is second-to-last arg, an integer
 !                                                1 ==> +
-      call fgslib_gs_op_fields(handle,yours,nf,nstate,1,1,0)
+      call fgslib_gs_op_fields(handle,mine,nf,nstate,1,1,0)
       return
       end
 
@@ -183,6 +196,43 @@ C> @}
       end
 
 !-------------------------------------------------------------------------------
+
+      subroutine fsharp(jface,z,flux,nstate,nflux)
+      include 'SIZE'
+      include 'INPUT'
+      include 'GEOM' ! for unx
+      include 'CMTDATA' ! do we need this without outflsub?
+      include 'TSTEP' ! for ifield?
+      include 'DG'
+
+! ==============================================================================
+! Arguments
+! ==============================================================================
+      integer nstate,nflux
+      real jface(lx1*lz1*2*ldim*nelt)
+      real z(lx1*lz1*2*ldim*nelt,nstate),
+     >     flux(lx1*lz1*2*ldim*nelt,nflux)
+      real scrf,scrg,scrh,nx,ny,nz
+
+      nf=lx1*lz1*2*ldim*nelt
+
+      call col3(jscr,jface,bmask,nf)
+
+! mass
+      call col3(scrf,z(1,irho),z(1,iux),nf)
+      call col3(scrg,z(1,irho),z(1,iuy),nf)
+      if (if3d) then
+         call col3(scrh,z(1,irho),z(1,iuz),nf)
+         call vdot3(fdot,scrf,nx,scrg,ny,scrh,nz,nf)
+      else
+         call vdot2(fdot,scrf,nx,scrg,ny,nf)
+      endif
+      call add2col2(flux(1,1),fdot,jscr,nf)
+
+! x-momentum
+
+      return
+      end
 
       subroutine InviscidFlux(jface,wminus,wplus,flux,nstate,nflux)
 !     subroutine InviscidFlux(wminus,wplus,flux,nstate,nflux)
