@@ -444,6 +444,7 @@ C> @}
 !          for e^th element.
 !          Metric terms Ja probably shouldn't be an argument but whatever.
 !          vfluxfunction is an argument in the spirit of Gassner, Winters & Kopriva
+!          and FLUXO (github.com/project-fluxo/fluxo)
 !          res is LOCAL RHS (not indexed by e)
       integer e,eq
       external vfluxfunction

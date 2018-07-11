@@ -111,6 +111,7 @@ C> by nek5000
 ! compute freestream-preserving metrics $Ja^i$ for transforming fluxes
 ! F to F~ in a contravariant frame according to
 ! Kopriva (2006)
+! Follows methodology in FLUXO (github.com/project-fluxo/fluxx.git)
 
 ! I REALLY want to duplicate get_dgll_ptr, make my own version of
 ! /dgradl/, set lxd=1, and replace rx with ja(lx1*ly1*lz1,ldim*ldim,lelv) 
