@@ -69,7 +69,10 @@ c----------------------------------------------------------------------
       subroutine out_fld_nek
       include 'SIZE'
       include 'SOLN'
-      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt) 
+      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt),
+     >                    ,jface(lx1,lz1,2*ldim,lelt)
+      real u,jface
+      common /solnconsvar/ u,jface 
       COMMON /SCRNS/      OTVAR(LX1,LY1,LZ1,lelt,7)
       real                OTVAR
       integer e,f
@@ -173,7 +176,8 @@ c      write(6,*)wfnav(1:i1),'.',citer(is:il)
           do i=1,nxy1
              do eq=1,toteq
 !               rhseqs(eq) = res1(i,1,1,e,eq)/bm1(i,1,1,e)
-                rhseqs(eq) = res1(i,1,1,e,eq)*jacmi(i,e)
+!               rhseqs(eq) = res1(i,1,1,e,eq)*jacmi(i,e)
+                rhseqs(eq) = res1(i,1,1,e,eq)
              enddo
           write(11,102)xm1(i,1,1,e),ym1(i,1,1,e)
      $         ,rhseqs(1),rhseqs(2),rhseqs(3),rhseqs(4)

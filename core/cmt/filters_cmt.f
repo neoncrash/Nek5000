@@ -62,6 +62,8 @@ c     taken from filterq in navier5.f
       include 'TSTEP'
     
       COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt) 
+     >                    ,jface(lx1,lz1,2*ldim,lelt)
+      real u,jface
       logical if3d
 c
       real w1(1),w2(1)

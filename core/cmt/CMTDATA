@@ -1,8 +1,9 @@
 C> \file CMTDATA include file for CMT variables and common blocks
 C> \var U(lxyz,5,lelt) contains nodal values of the five conserved unknowns at
 C> each of lx1*ly1*lz1 grid points for all elements
-      real                 u(lx1,ly1,lz1,toteq,lelt) 
-      common /solnconsvar/ u 
+      real                 u(lx1,ly1,lz1,toteq,lelt)
+     >                    ,jface(lx1,lz1,2*ldim,lelt)
+      common /solnconsvar/ u,jface 
  
       logical            iffltr,    outflsub
      $                , ifcntfilt, ifrestart

@@ -69,19 +69,10 @@ c compute_rhs_dt for the 5 conserved variables
          do e=1,nelt
             do eq=1,toteq
             do i=1,nxyz1
-c multiply u with bm1 as res has been multiplied by bm1 in compute_rhs
-               u(i,1,1,eq,e) = bm1(i,1,1,e)*tcoef(1,stage)
-     >                     *res3(i,1,1,eq,e)+bm1(i,1,1,e)*
-     >                     tcoef(2,stage)*u(i,1,1,eq,e)-
-     >                     tcoef(3,stage)*res1(i,1,1,e,eq)
-c              u(i,1,1,eq,e) = bm1(i,1,1,e)*u(i,1,1,eq,e) - DT *
-c    >                        (c1*res1(i,1,1,e,eq) + c2*res2(i,1,1,e,eq)
-c    >                       + c3*res3(i,1,1,e,eq))
-c-----------------------------------------------------------------------
-! JH111815 in fact, I'd like to redo the time marching stuff above and
-!          have an fbinvert call for res1
-               u(i,1,1,eq,e) = u(i,1,1,eq,e)/bm1(i,1,1,e)
-c-----------------------------------------------------------------------
+! JH071218 res1 is premultiplied by B^{-1}
+               u(i,1,1,eq,e) = tcoef(1,stage)*res3(i,1,1,eq,e)+
+     >                         tcoef(2,stage)*u(i,1,1,eq,e)-
+     >                         tcoef(3,stage)*res1(i,1,1,e,eq)
             enddo
             enddo
          enddo
@@ -170,7 +161,8 @@ C> Store it in res1
 C> Restrict via \f$\mathbf{E}\f$ to get primitive and conserved variables
 C> on interior faces \f$\mathbf{U}^-\f$ and neighbor faces
 C> \f$\mathbf{U}^+\f$; store in CMTSURFLX
-      call fluxes_full_field
+!     call fluxes_full_field_old
+      call fluxes_full_field(roe_trivial)
 
 C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       nstate=nqq
@@ -183,7 +175,7 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
       dumchars='after_inviscid'
-      call dumpresidue(dumchars,999)
+!     call dumpresidue(dumchars,999)
 
                !                   -
       iuj=iflx ! overwritten with U -{{U}}
@@ -199,6 +191,15 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
 !***********************************************************************
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}^{\intercal}\nabla v\}\} \cdot \left[\mathbf{U}\right] dA\f$
       if (1 .eq. 2) then
+! JH070918 conserved variables done here.
+      i_cvars=(iu1-1)*nfq+1
+      do eq=1,toteq
+         call faceu(eq,fatface(i_cvars))
+! JH080317 at least get the product rule right until we figure out how
+!          we want the governing equations to look
+         call invcol2(fatface(i_cvars),fatface(iwm+nfq*(iph-1)),nfq)
+         i_cvars=i_cvars+nfq
+      enddo
       ium=(iu1-1)*nfq+iwm
       iup=(iu1-1)*nfq+iwp
       call   imqqtu(flux(iuj),flux(ium),flux(iup))
@@ -239,8 +240,7 @@ C> for each equation (inner), one element at a time (outer)
          enddo
       enddo
       dumchars='after_elm'
-      call dumpresidue(dumchars,999)
-      call exitt
+!     call dumpresidue(dumchars,999)
 
 C> res1-=\f$\oint \mathbf{H}^{c}\cdot\mathbf{n}dA\f$ on face points
       nstate=nqq
@@ -264,6 +264,12 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\righ
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
       endif
+
+! one last
+      do eq=1,toteq
+         call col2(res1(1,1,1,1,eq),jacmi,nelt*lx1*ly1*lz1)
+      enddo
+
       dumchars='end_of_rhs'
 !     call dumpresidue(dumchars,999)
 

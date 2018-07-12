@@ -21,16 +21,6 @@ C> ummcu = \f$\mathbf{U}^--\{\{\mathbf{U}\}\}\f$
       nf = lx1*lz1*2*ldim*nelt
       const=-0.5
 
-! JH070918 conserved variables done elsewhere.
-      i_cvars=(iu1-1)*nfq+1
-      do eq=1,toteq
-         call faceu(eq,fatface(i_cvars))
-! JH080317 at least get the product rule right until we figure out how
-!          we want the governing equations to look
-         call invcol2(fatface(i_cvars),fatface(iwm+nfq*(iph-1)),nfq)
-         i_cvars=i_cvars+nfq
-      enddo
-
 ! U-{{U}} on interior faces. first just do it on all faces.
       do ivar=1,toteq
          call add3(ummcu(1,ivar),uminus(1,ivar),uplus(1,ivar),nf)
