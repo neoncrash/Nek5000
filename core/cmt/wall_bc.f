@@ -274,7 +274,7 @@ c                                     ! ux,uy,uz someday
          call map_faced(nzf,unz(1,1,f,e),lx1,lxd,fdim,0)
          call map_faced(plf,plc,lx1,lxd,fdim,0)
 
-         call invcol3(jaco_c,area(1,1,f,e),wghtc,nxz)
+         call invcol3(jaco_c,area(1,1,f,e),w2m1,nxz)
          call map_faced(jaco_f,jaco_c,lx1,lxd,fdim,0)
          call col2(jaco_f,wghtf,nxzd)
       else

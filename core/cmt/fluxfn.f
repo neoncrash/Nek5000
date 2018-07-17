@@ -1,4 +1,4 @@
-C> @file ausm.f Riemann solvers and other rocflu miscellany
+C> @file fluxfn.f Riemann solvers, other rocflu miscellany and two-point fluxes
 ! ******************************************************************************
 !
 ! Purpose: Compute convective fluxes using AUSM+ scheme.
@@ -175,5 +175,42 @@ C> @}
      >               pr(i)*fs(i))
       enddo
 
+      return
+      end
+
+!-----------------------------------------------------------------------
+! JH060618 Hooray for two-point fluxes! Needed for entropy-conserving DGSEM
+!          in CMT-nek. These are volume functions here. calls to GS for
+!          surface fluxes need dedicated subroutines.
+
+      subroutine kennedygruber(flx,ul,ur,wl,wr,jal,jar)
+      include 'SIZE' ! for ldim
+      real flx(5)
+      real ul(5),ur(5),wl(4),wr(4),jal(3),jar(3)
+      real rav,uav(3),pav,eav,jav(3)
+      real rl,rr,pl,pr,qav,rq
+      rl=ul(1)
+      rr=ur(1)
+      pl=wl(4)
+      pr=wr(4)
+      call rzero(jav,3)
+      call rzero(uav,3)
+      do j=1,ldim
+         jav(j)=0.5*(jal(j)+jar(j))
+         uav(j)=0.5*( wl(j)+ wr(j))
+      enddo
+      rav=0.5*(rl +rr )
+      pav=0.5*(pl +pr )
+      eav=0.5*(ul(5)/rl+ur(5)/rr)
+      qav=0.0
+      do j=1,ldim
+         qav=qav+uav(j)*jav(j)
+      enddo
+      rq=rav*qav
+      flx(1)=rq
+      flx(2)=rq*uav(1)+jav(1)*pav
+      flx(3)=rq*uav(2)+jav(2)*pav
+      flx(4)=rq*uav(3)+jav(3)*pav
+      flx(5)=rq*eav+pav*qav
       return
       end

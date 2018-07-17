@@ -42,7 +42,7 @@ c     Solve the Euler equations
          call compute_mesh_h(meshh,xm1,ym1,zm1)
          call compute_grid_h(gridh,xm1,ym1,zm1)
          call compute_primitive_vars ! get good mu
-         call entropy_viscosity      ! for high diffno
+         if (1==2) call entropy_viscosity      ! for high diffno
          call compute_transport_props! at t=0
 
       endif
@@ -69,19 +69,10 @@ c compute_rhs_dt for the 5 conserved variables
          do e=1,nelt
             do eq=1,toteq
             do i=1,nxyz1
-c multiply u with bm1 as res has been multiplied by bm1 in compute_rhs
-               u(i,1,1,eq,e) = bm1(i,1,1,e)*tcoef(1,stage)
-     >                     *res3(i,1,1,eq,e)+bm1(i,1,1,e)*
-     >                     tcoef(2,stage)*u(i,1,1,eq,e)-
-     >                     tcoef(3,stage)*res1(i,1,1,e,eq)
-c              u(i,1,1,eq,e) = bm1(i,1,1,e)*u(i,1,1,eq,e) - DT *
-c    >                        (c1*res1(i,1,1,e,eq) + c2*res2(i,1,1,e,eq)
-c    >                       + c3*res3(i,1,1,e,eq))
-c-----------------------------------------------------------------------
-! JH111815 in fact, I'd like to redo the time marching stuff above and
-!          have an fbinvert call for res1
-               u(i,1,1,eq,e) = u(i,1,1,eq,e)/bm1(i,1,1,e)
-c-----------------------------------------------------------------------
+! JH071218 res1 is premultiplied by B^{-1}
+               u(i,1,1,eq,e) = tcoef(1,stage)*res3(i,1,1,eq,e)+
+     >                         tcoef(2,stage)*u(i,1,1,eq,e)-
+     >                         tcoef(3,stage)*res1(i,1,1,e,eq)
             enddo
             enddo
          enddo
@@ -130,14 +121,7 @@ C> Store it in res1
       call compute_mesh_h(meshh,xm1,ym1,zm1)
       call compute_grid_h(gridh,xm1,ym1,zm1)
 
-      if (lxd.gt.lx1) then
-         call set_dealias_face
-      else
-         call set_alias_rx(istep)
-      endif
-
-!     call set_dealias_rx ! done in set_convect_cons,
-! JH113015                ! now called from compute_primitive_variables
+      call cmt_metrics(istep)
 
 !     filter the conservative variables before start of each
 !     time step
@@ -155,7 +139,7 @@ C> Store it in res1
          call set_tstep_coef
       endif
 
-      call entropy_viscosity ! accessed through uservp. computes
+      if (1.eq.2) call entropy_viscosity ! accessed through uservp. computes
                              ! entropy residual and max wave speed
       call compute_transport_props ! everything inside rk stage
 !     call smoothing(vdiff(1,1,1,1,imu)) ! still done in usr file
@@ -164,7 +148,7 @@ C> Store it in res1
       ntot = lx1*ly1*lz1*lelt*toteq
       call rzero(res1,ntot)
       call rzero(flux,heresize)
-      call rzero(graduf,hdsize)
+!     call rzero(graduf,hdsize) ! now has new face jacobian
 
 !     !Total_eqs = 5 (we will set this up so that it can be a user 
 !     !defined value. 5 will be its default value)
@@ -177,7 +161,8 @@ C> Store it in res1
 C> Restrict via \f$\mathbf{E}\f$ to get primitive and conserved variables
 C> on interior faces \f$\mathbf{U}^-\f$ and neighbor faces
 C> \f$\mathbf{U}^+\f$; store in CMTSURFLX
-      call fluxes_full_field
+      call fluxes_full_field_old
+!     call fluxes_full_field(roe_trivial)
 
 C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       nstate=nqq
@@ -205,6 +190,16 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
 ! CMTDATA BETTA REFLECT THIS!!!
 !***********************************************************************
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}^{\intercal}\nabla v\}\} \cdot \left[\mathbf{U}\right] dA\f$
+      if (1 .eq. 2) then
+! JH070918 conserved variables done here.
+      i_cvars=(iu1-1)*nfq+1
+      do eq=1,toteq
+         call faceu(eq,fatface(i_cvars))
+! JH080317 at least get the product rule right until we figure out how
+!          we want the governing equations to look
+         call invcol2(fatface(i_cvars),fatface(iwm+nfq*(iph-1)),nfq)
+         i_cvars=i_cvars+nfq
+      enddo
       ium=(iu1-1)*nfq+iwm
       iup=(iu1-1)*nfq+iwp
       call   imqqtu(flux(iuj),flux(ium),flux(iup))
@@ -212,6 +207,7 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}^{\intercal}\nabla v\}\} \cdot \left[\ma
       call igtu_cmt(flux(iwm),flux(iuj),graduf) ! [[u]].{{gradv}}
       dumchars='after_igtu'
 !     call dumpresidue(dumchars,999)
+      endif
 
 C> res1+=\f$\int \left(\nabla v\right) \cdot \left(\mathbf{H}^c+\mathbf{H}^d\right)dV\f$ 
 C> for each equation (inner), one element at a time (outer)
@@ -227,29 +223,53 @@ C> for each equation (inner), one element at a time (outer)
 !          at once, then this and its dependents can still have their
 !          loop order flipped and things like totalh declared for
 !          15 full fields or more.
+! JH060418 totalh is now 15 elements. interchanged with equation loop
 !-----------------------------------------------------------------------
 ! Get user defined forcing from userf defined in usr file
          call cmtusrf(e)
-         call compute_gradients(e) ! gradU
+         if (1 .eq. 2) call compute_gradients(e) ! gradU
+         call convective_cmt(e)        ! convh & totalh -> res1
          do eq=1,toteq
-            call convective_cmt(e,eq)        ! convh & totalh -> res1
-            call    viscous_cmt(e,eq) ! diffh -> half_iku_cmt -> res1
+            if (1.eq.2) then
+               call    viscous_cmt(e,eq) ! diffh -> half_iku_cmt -> res1
                                              !       |
                                              !       -> diffh2graduf
 ! Compute the forcing term in each of the 5 eqs
-            call compute_forcing(e,eq)
+               call compute_forcing(e,eq)
+            endif
          enddo
       enddo
       dumchars='after_elm'
 !     call dumpresidue(dumchars,999)
 
+C> res1-=\f$\oint \mathbf{H}^{c}\cdot\mathbf{n}dA\f$ on face points
+      nstate=nqq
+      nfq=lx1*lz1*2*ldim*nelt
+      iwm =1
+      iwp =iwm+nstate*nfq
+      iflx=iwp+nstate*nfq
+      do eq=1,toteq
+         ieq=(eq-1)*ndg_face+iflx
+!        call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
+      enddo
+      dumchars='after_strong'
+!     call dumpresidue(dumchars,999)
+
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\right] dA\f$
+      if (1.eq.2) then
       call igu_cmt(flux(iwp),graduf,flux(iwm))
       do eq=1,toteq
          ieq=(eq-1)*ndg_face+iwp
 !Finally add viscous surface flux functions of derivatives to res1.
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
+      endif
+
+! one last
+      do eq=1,toteq
+         call col2(res1(1,1,1,1,eq),jacmi,nelt*lx1*ly1*lz1)
+      enddo
+
       dumchars='end_of_rhs'
 !     call dumpresidue(dumchars,999)
 

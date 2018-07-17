@@ -142,12 +142,12 @@ c-----------------------------------------------------------------------
       include 'CMTDATA'
       integer e
 
-      call rzero(totalh,3*lxd*lyd*lzd)
+      call rzero(totalh,3*lxd*lyd*lzd*toteq)
       n=lx1*ly1*lz1
 
-      call col3(totalh(1,1),vx(1,1,1,e),tlag(1,1,1,e,1,1),n)
-      call col3(totalh(1,2),vy(1,1,1,e),tlag(1,1,1,e,1,1),n)
-      if (if3d) call col3(totalh(1,3),vz(1,1,1,e),tlag(1,1,1,e,1,1),n)
+      call col3(totalh(1,1,1),vx(1,1,1,e),tlag(1,1,1,e,1,1),n)
+      call col3(totalh(1,2,1),vy(1,1,1,e),tlag(1,1,1,e,1,1),n)
+      if (if3d) call col3(totalh(1,3,1),vz(1,1,1,e),tlag(1,1,1,e,1,1),n)
 
       return
       end
@@ -179,31 +179,31 @@ c-----------------------------------------------------------------------
       call rzero(tu,nrstd)
 
       if (if3d) then
-         call local_grad3(ur,us,ut,totalh(1,1),mdm1,1,dxm1,dxtm1)
+         call local_grad3(ur,us,ut,totalh(1,1,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz
             ud(i) = jacmi(i,e)*(rxm1(i,1,1,e)*ur(i)
      $                        + sxm1(i,1,1,e)*us(i)
      $                        + txm1(i,1,1,e)*ut(i))
          enddo
-         call local_grad3(ur,us,ut,totalh(1,2),mdm1,1,dxm1,dxtm1)
+         call local_grad3(ur,us,ut,totalh(1,2,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz ! confirmed to have no effect in 1D
             ud(i)=ud(i)+jacmi(i,e)*(rym1(i,1,1,e)*ur(i)
      $                            + sym1(i,1,1,e)*us(i)
      $                            + tym1(i,1,1,e)*ut(i))
          enddo
-         call local_grad3(ur,us,ut,totalh(1,3),mdm1,1,dxm1,dxtm1)
+         call local_grad3(ur,us,ut,totalh(1,3,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz ! confirmed to have no effect in 1D
             ud(i)=ud(i)+jacmi(i,e)*(rzm1(i,1,1,e)*ur(i)
      $                            + szm1(i,1,1,e)*us(i)
      $                            + tzm1(i,1,1,e)*ut(i))
          enddo
       else
-         call local_grad2(ur,us,totalh(1,1),mdm1,1,dxm1,dxtm1)
+         call local_grad2(ur,us,totalh(1,1,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz
             ud(i) = jacmi(i,e)*(rxm1(i,1,1,e)*ur(i)
      $                        + sxm1(i,1,1,e)*us(i))
          enddo
-         call local_grad2(ur,us,totalh(1,2),mdm1,1,dxm1,dxtm1)
+         call local_grad2(ur,us,totalh(1,2,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz
             ud(i)=ud(i)+jacmi(i,e)*(rym1(i,1,1,e)*ur(i)
      $                            + sym1(i,1,1,e)*us(i))

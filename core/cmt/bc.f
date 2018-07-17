@@ -15,6 +15,7 @@ C> Determining rind state for Dirichlet boundary conditions
       include 'INPUT' ! do we need this?
       include 'GEOM' ! for unx
       include 'CMTDATA' ! do we need this without outflsub?
+      include 'CMTBCDATA'  !bmask
 !     include 'TSTEP' ! for ifield?
       include 'DG'
 
@@ -76,9 +77,12 @@ C> Determining rind state for Dirichlet boundary conditions
       ifield= 1 ! You need to figure out the best way of dealing with
                 ! this variable
 
+      call rone(bmask,nxz*nface*nelt)
+
 !     if (outflsub)then
 !        call maxMachnumber
 !     endif
+
       do e=1,nelt
       do f=1,nface
 
@@ -100,6 +104,8 @@ C> Determining rind state for Dirichlet boundary conditions
                   endif
                enddo
             enddo
+
+            call rzero(bmask(1,1,f,e),nxz)
 
 ! JH060215 added SYM bc. Just use it as a slip wall hopefully.
 ! JH021717 OK I just realized that this way doubles my userbc calls.

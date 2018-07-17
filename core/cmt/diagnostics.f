@@ -60,7 +60,7 @@ c-----------------------------------------------------------------------
       character*100 zefmt
       write(zefmt,'(a1,i2,a6)') '(',nb,'e15.7)'
       do i=1,na
-         write(37,zefmt) (ab(i,j),j=1,nb)
+         write(6,zefmt) (ab(i,j),j=1,nb)
 !        write(6,*) i,'rowsum=',sum(ab(i,1:nb))
       enddo
       return
@@ -69,7 +69,9 @@ c----------------------------------------------------------------------
       subroutine out_fld_nek
       include 'SIZE'
       include 'SOLN'
-      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt) 
+      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt)
+     >                    ,jface(lx1,lz1,2*ldim,lelt)
+      real u,jface
       COMMON /SCRNS/      OTVAR(LX1,LY1,LZ1,lelt,7)
       real                OTVAR
       integer e,f
@@ -143,7 +145,7 @@ c        exit ! Not valid w/ pgf77
       nxy1  = lx1*ly1
       open(unit=11,file=wfnav(1:i1)//'.'//'it='//citer(is:il)//
      $                     '.'//'p='//citer2(is2:il2))
-      write(11,*)'Title="',wfnav(1:i1),'"'
+      write(11,*)'#Title="',wfnav(1:i1),'"'
 c      write(6,*)wfnav(1:i1),'.',citer(is:il)
       do i=1,length
         wfnav(i:i)=' '
@@ -152,12 +154,14 @@ c      write(6,*)wfnav(1:i1),'.',citer(is:il)
         citer(i:i)=' '
       enddo
       if(if3d)then
-        write(11,*)'Variables=x,y,z,e1,e2,e3,e4,e5'
+        write(11,*)'#Variables=x,y,z,e1,e2,e3,e4,e5'
         do e = 1,nelt
-          write(11,*)'zone T="',e,'",i=',lx1,',j=',ly1,',k=',lz1
+          write(11,*)'#zone T="',e,'",i=',lx1,',j=',ly1,',k=',lz1
           do i=1,nxyz1
              do eq=1,toteq
-                rhseqs(eq) = res1(i,1,1,e,eq)/bm1(i,1,1,e)
+!               rhseqs(eq) = res1(i,1,1,e,eq)/bm1(i,1,1,e)
+                rhseqs(eq) = res1(i,1,1,e,eq)*jacmi(i,e)
+!               rhseqs(eq) = res1(i,1,1,e,eq)
              enddo
           write(11,101)xm1(i,1,1,e),ym1(i,1,1,e),zm1(i,1,1,e)
      $         ,rhseqs(1),rhseqs(2),rhseqs(3),rhseqs(4)
@@ -165,12 +169,14 @@ c      write(6,*)wfnav(1:i1),'.',citer(is:il)
           enddo
         enddo
       else
-        write(11,*)'Variables=x,y,e1,e2,e3,e4,e5'
+        write(11,*)'#Variables=x,y,e1,e2,e3,e4,e5'
         do e = 1,nelt
-          write(11,*)'zone T="',e,'",i=',lx1,',j=',ly1
+          write(11,*)'#zone T="',e,'",i=',lx1,',j=',ly1
           do i=1,nxy1
              do eq=1,toteq
-                rhseqs(eq) = res1(i,1,1,e,eq)/bm1(i,1,1,e)
+!               rhseqs(eq) = res1(i,1,1,e,eq)/bm1(i,1,1,e)
+!               rhseqs(eq) = res1(i,1,1,e,eq)*jacmi(i,e)
+                rhseqs(eq) = res1(i,1,1,e,eq)
              enddo
           write(11,102)xm1(i,1,1,e),ym1(i,1,1,e)
      $         ,rhseqs(1),rhseqs(2),rhseqs(3),rhseqs(4)
