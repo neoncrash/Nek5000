@@ -31,7 +31,7 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       integer eq
       character*32 cname
       nfq=lx1*lz1*2*ldim*nelt
-      nstate = 
+      nstate = nqq
 ! where different things live
       iwm =1
       iwp =iwm+nstate*nfq
@@ -80,6 +80,10 @@ C> @}
 
       subroutine roe_trivial(fatface,nf,ns)
       real fatface(*)
+      return
+      end
+
+      subroutine llf
       return
       end
 
@@ -209,20 +213,25 @@ C> @}
       integer nstate,nflux
       real z(lx1*lz1*2*ldim*nelt,nstate),
      >     flux(lx1*lz1*2*ldim*nelt,nflux)
-      common /srcsomething/scrf(),scrg(),scrh(),fdot(),nx(),ny(),nz
+      
+      parameter (lfq=lx1*lz1*2*ldim*lelt)
+      common /SCRNS/ scrf(lfq),scrg(lfq),scrh(lfq),fdot(lfq),
+     >                 nx(lx1*lz1,2*ldim,lelt),ny(lx1*lz1,2*ldim,lelt),
+     >                 nz(lx1*lz1,2*ldim,lelt)
       real scrf,scrg,scrh,fdot,nx,ny,nz
       integer e,f
 
       nfaces=2*ldim
-      nf=lx1*lz1*nfaces*nelt
+      nxz=lx1*lz1
+      nf=nxz*nfaces*nelt
 
       call col3(jscr,jface,bmask,nf)
 
       do e=1,nelt
          do f=1,nfaces
-            call copy(nx,unx(1,1,f,e),nxz)
-            call copy(ny,uny(1,1,f,e),nxz)
-            if(if3d) call copy(nz,unz(1,1,f,e),nxz)
+            call copy(nx(1,f,e),unx(1,1,f,e),nxz)
+            call copy(ny(1,f,e),uny(1,1,f,e),nxz)
+            if(if3d) call copy(nz(1,f,e),unz(1,1,f,e),nxz)
          enddo
       enddo
 
@@ -243,6 +252,8 @@ C> @}
       call col2(fdot,nx,nf)
       call addcol4(fdot,scrf,z(1,iuy),ny,nf)
       if (if3d) call addcol4(fdot,scrg,z(1,iuz),nz,nf)
+
+! PICK UP HERE
 
       return
       end
@@ -405,7 +416,7 @@ C> @}
 
             call copy(phl,wminus(1,f,e,iph),nxz)
 
-            call copy(jaco_f,jface(1,f,e),nxz) 
+            call copy(jaco_f,jface(1,1,f,e),nxz) 
          endif
          call rzero(fs,nxzd) ! moving grid stuff later
 
@@ -622,7 +633,7 @@ C> @}
 ! JUNKYARD
 !-----------------------------------------------------------------------
 
-      subroutine fluxes_full_field
+      subroutine fluxes_full_field_old
 !-----------------------------------------------------------------------
 ! JH060314 First, compute face fluxes now that we have the primitive variables
 ! JH091514 renamed from "surface_fluxes_inviscid" since it handles all fluxes
@@ -649,6 +660,7 @@ C> @}
       character*32 cname
 
       nstate = nqq
+      nfq=lx1*lz1*2*ldim*nelt
 ! where different things live
       iwm =1
       iwp =iwm+nstate*nfq

@@ -371,10 +371,12 @@ C> by nek5000
                   anew=anew+jaface(l,f,i,ndir(f))**2
                enddo
                anew=sqrt(anew)
-               jface(l,1,f,e)=anew*wght
-               unx(l,1,f,e)=jaface(l,f,1,ndir(f))/anew*nsgn(f)
-               uny(l,1,f,e)=jaface(l,f,2,ndir(f))/anew*nsgn(f)
-               if (if3d) unz(l,1,f,e)=jaface(l,f,3,ndir(f))/anew*nsgn(f)
+               jface(ix,iz,f,e)=anew*wght
+               unx(ix,iz,f,e)=jaface(l,f,1,ndir(f))/anew*nsgn(f)
+               uny(ix,iz,f,e)=jaface(l,f,2,ndir(f))/anew*nsgn(f)
+               if (if3d) then
+                  unz(ix,iz,f,e)=jaface(l,f,3,ndir(f))/anew*nsgn(f)
+               endif
 ! TODO: check again on deformed meshes.
 
 ! we're taking over this town

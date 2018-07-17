@@ -69,10 +69,9 @@ c----------------------------------------------------------------------
       subroutine out_fld_nek
       include 'SIZE'
       include 'SOLN'
-      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt),
+      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt)
      >                    ,jface(lx1,lz1,2*ldim,lelt)
       real u,jface
-      common /solnconsvar/ u,jface 
       COMMON /SCRNS/      OTVAR(LX1,LY1,LZ1,lelt,7)
       real                OTVAR
       integer e,f
