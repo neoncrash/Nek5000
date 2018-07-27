@@ -160,9 +160,23 @@ c                                     !     ux,uy,uz
          if (mach.lt.1.0) then
 
             pres  = facew(l,f,e,ipr) ! extrapolated, overwritten
-            temp = pres/rho/(cp-cv) ! definitely too perfect!
+!            temp = pres/rho/(cp-cv) ! definitely too perfect!
+!change temperature here
+            temp=(pres-AA*exp(-R1ref*rho0ref/rho)-BB*
+     >      exp(-R2ref*rho0ref/rho))*1./OM/cvref/rho 
             wbc(l,f,e,ipr)  = pres
-            wbc(l,f,e,isnd) = sqrt(cp/cv*pres/rho) ! too perfect?
+!NTN change formula of the sound spped here
+            wbc(l,f,e,isnd) =SQRT((AA*(R1ref*(rho0ref/rho)/rho-OM/
+     >      rho-OM/(R1ref*rho0ref)-MWref/(R1ref*rho0ref/rho))+
+     >      MAref*pres/(rho*rho)*(1.-OM/(R1ref*rho0ref/rho)))*
+     >      exp(-R1ref*rho0ref/rho)+(BB*(R2ref*(rho0ref/rho)/rho-
+     >      OM/rho-OM/(R2ref*rho0ref)-MWref/(R2ref*rho0ref/rho))+
+     >      MBref*pres/(rho*rho)*(1.-OM/(R2ref*rho0ref/rho)))*
+     >      exp(-R2ref*rho0ref/rho)+OM*(e_internal+pres/rho)+
+     >      MWref*rho*e_internal)
+
+
+!            wbc(l,f,e,isnd) = sqrt(cp/cv*pres/rho) ! too perfect?
             wbc(l,f,e,ithm) = temp      ! definitely too perfect!
             wbc(l,f,e,icpf) = rho*cp ! NEED EOS WITH TEMP Dirichlet, userbc
             wbc(l,f,e,icvf) = rho*cv ! NEED EOS WITH TEMP Dirichlet, userbc
@@ -290,18 +304,18 @@ c                                     !     ux,uy,uz
       parameter (BCOPT_SUBSONIC = 1)
       parameter (BCOPT_MIXED = 2)
       parameter (BCOPT_FIXED_NO = 2)
-      real  MixtPerf_C_Co2GUVW, MixtPerf_C_DGP, MixtPerf_C_GRT,
+      real  MixtPerf_C_Co2GUVW, MixtPerf_C_DGP,MixtPerf_C_GRT,
      >  MixtPerf_Co2_CGUVW, MixtPerf_C2_GRT,MixtPerf_D_PRT,
      >  MixtPerf_Eo_DGPUVW, MixtPerf_Eo_DGPVm, MixtPerf_G_CpR,
      >  MixtPerf_P_GMaPo, MixtPerf_P_GPoTTo, MixtPerf_Po_GPTTo,
      >  MixtPerf_Po_CGPUVW, MixtPerf_R_M, MixtPerf_T_CGR,
-     >  MixtPerf_T_GMaTo,  MixtPerf_Vm_C2Co2G
-      external  MixtPerf_C_Co2GUVW, MixtPerf_C_DGP, MixtPerf_C_GRT,
+     >  MixtPerf_T_GMaTo,  MixtPerf_Vm_C2Co2G,MixtJWL_SO
+      external  MixtPerf_C_Co2GUVW, MixtPerf_C_DGP,MixtPerf_C_GRT,
      >  MixtPerf_Co2_CGUVW, MixtPerf_C2_GRT,MixtPerf_D_PRT,
      >  MixtPerf_Eo_DGPUVW, MixtPerf_Eo_DGPVm, MixtPerf_G_CpR,
      >  MixtPerf_P_GMaPo, MixtPerf_P_GPoTTo, MixtPerf_Po_GPTTo,
      >  MixtPerf_Po_CGPUVW, MixtPerf_R_M, MixtPerf_T_CGR,
-     >  MixtPerf_T_GMaTo,  MixtPerf_Vm_C2Co2G
+     >  MixtPerf_T_GMaTo,  MixtPerf_Vm_C2Co2G,MixtJWL_SO
 
 
 ! ... parameters

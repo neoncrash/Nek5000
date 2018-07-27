@@ -36,13 +36,14 @@ c     call setup_cmt_param
       INCLUDE 'CMTDATA'
       INCLUDE 'CMTBCDATA'
 
-      real  MixtPerf_R_CpG, MixtPerf_T_DPR, MixtPerf_C_GRT
-     >                 ,MixtPerf_Ho_CpTUVW,MixtPerf_Cp_CvR,MixtPerf_R_M
-     >                 ,MixtPerf_G_CpR      
-      external MixtPerf_R_CpG, MixtPerf_T_DPR, MixtPerf_C_GRT
-     >                 ,MixtPerf_Ho_CpTUVW,MixtPerf_Cp_CvR,MixtPerf_R_M
-     >                 ,MixtPerf_G_CpR      
-
+      real     MixtJWL_TE,MixtJWL_SO,MixtJWL_PR 
+     >         MixtJWL_I_ENE,MixtJWL_Enthalpy 
+     >         MixtPerf_R_M,MixtPerf_T_DPR   ! Perfect gas
+     >         MixtPerf_Cp_CvR,MixtPerf_G_CpR     
+      external MixtJWL_TE,MixtJWL_SO,MixtJWL_PR 
+     >         MixtJWL_I_ENE,MixtJWL_Enthalpy        
+     >         MixtPerf_R_M,MixtPerf_T_DPR   ! Prefect gas
+     >         MixtPerf_Cp_CvR,MixtPerf_G_CpR
       cip_adhoc=10.0
       cvgref     = param(104)
 c     gmaref     = param(105)
@@ -53,9 +54,9 @@ c     gmaref     = param(105)
       reftemp    = param(110)
       prlam      = param(111)
       pinfty     = param(112)
-      rgasref    = MixtPerf_R_M(molmass,dum)
       cpgref     = MixtPerf_Cp_CvR(cvgref,rgasref)
-      gmaref     = MixtPerf_G_CpR(cpgref,rgasref) 
+      gmaref     = MixtPerf_G_CpR(cpgref,rgasref)
+      rgasref    = MixtPerf_R_M(molmass,dum)
 ! put these in rea file someday
       ifsip = .false.
       return

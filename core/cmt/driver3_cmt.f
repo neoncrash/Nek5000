@@ -1,4 +1,4 @@
-C> @file driver3_cmt.f routines for primitive variables, usr-file interfaces
+C> @file driver3_cmt.f routines for primitivg variables, usr-file interfaces
 C> and properties
 
 C> Compute primitive variables (velocity, thermodynamic state) from 
@@ -15,22 +15,11 @@ C> conserved unknowns U
       parameter (lxyz=lx1*ly1*lz1)
       common /ctmp1/ energy(lx1,ly1,lz1),scr(lx1,ly1,lz1)
       integer e, eq
-      common /posflags/ ifailr,ifaile,ifailt
-      integer ifailr,ifaile,ifailt
 
       nxyz= lx1*ly1*lz1
       ntot=nxyz*nelt
-      ifailr=-1
-      ifaile=-1
-      ifailt=-1
 
       do e=1,nelt
-! JH020918 long-overdue sanity checks
-         dmin=vlmin(u(1,1,1,irg,e),nxyz)
-         if (dmin .lt. 0.0) then
-            ifailr=lglel(e)
-            write(6,*) nid,'***NEGATIVE DENSITY***',dmin,lglel(e)
-         endif
          call invcol3(vx(1,1,1,e),u(1,1,1,irpu,e),u(1,1,1,irg,e),nxyz)
          call invcol3(vy(1,1,1,e),u(1,1,1,irpv,e),u(1,1,1,irg,e),nxyz)
 !        if (if3d)
@@ -53,20 +42,13 @@ C> conserved unknowns U
 ! don't forget to get density where it belongs
          call invcol3(vtrans(1,1,1,e,irho),u(1,1,1,irg,e),phig(1,1,1,e),
      >                nxyz)
-! JH020718 long-overdue sanity checks
-         emin=vlmin(energy,nxyz)
-         if (emin .lt. 0.0) then
-            ifaile=lglel(e)
-            write(6,*) nid, ' HAS NEGATIVE ENERGY ',emin,lglel(e)
-         endif
-         call tdstate(e,energy) ! compute state, fill ifailt
+         call tdstate(e,energy)
       enddo
+!         call poscheck(ifailr,'density')
+!         call poscheck(ifailr,'energy')
+!         call poscheck(ifailr,'temperature')
 
-      call poscheck(ifailr,'density    ')
-      call poscheck(ifaile,'energy     ')
-      call poscheck(ifailt,'temperature')
-
-! setup_convect has the desired effect
+! setup_convecg has the desired effect
 ! if IFPART=F
 ! if IFCHAR=F
 ! if IFCONS=T
@@ -87,7 +69,6 @@ C> conserved unknowns U
 
       return
       end
-
 !-----------------------------------------------------------------------
 
 C> Compute thermodynamic state for element e from internal energy.
@@ -103,24 +84,15 @@ c We have perfect gas law. Cvg is stored full field
       integer   e,eg
       real energy(lx1,ly1,lz1)
 
-      common /posflags/ ifailr,ifaile,ifailt
-      integer ifailr,ifaile,ifailt
-
       eg = lglel(e)
       do k=1,lz1
       do j=1,ly1
       do i=1,lx1
          call nekasgn(i,j,k,e)
          call cmtasgn(i,j,k,e)
-         e_internal=energy(i,j,k) !cmtasgn should do this, but can't
+         e_internal=energy(i,j,k)!nekasgn should do this, but can't
          call cmt_userEOS(i,j,k,eg)
-! JH020718 long-overdue sanity checks
-         if (temp .lt. 0.0) then
-            ifailt=eg
-            write(6,'(i6,a26,3i2,i8,e15.6)') ! might want to be less verbose
-     >      nid,' HAS NEGATIVE TEMPERATURE ', i,j,k,eg,temp
-         endif
-         vtrans(i,j,k,e,icp)= cp*rho
+         vtrans(i,j,k,e,icp)= e_internal 
          vtrans(i,j,k,e,icv)= cv*rho
          t(i,j,k,e,1)       = temp
          pr(i,j,k,e)        = pres
@@ -141,7 +113,6 @@ c-----------------------------------------------------------------------
       include 'NEKUSE'
 
       integer e,eqnum
-
       do eqnum=1,toteq
          varsic(eqnum)=u(ix,iy,iz,eqnum,e)  
       enddo
@@ -150,7 +121,8 @@ c-----------------------------------------------------------------------
       pres = pr    (ix,iy,iz,e)
       if (rho.ne.0) then
          cv   = vtrans(ix,iy,iz,e,icv)/rho
-         cp   = vtrans(ix,iy,iz,e,icp)/rho
+!         cp   = vtrans(ix,iy,iz,e,icp)/rho
+      e_internal = vtrans(ix,iy,iz,e,icp) 
       endif
       asnd = csound(ix,iy,iz,e)
       mu     = vdiff(ix,iy,iz,e,imu)
@@ -183,7 +155,6 @@ c-----------------------------------------------------------------------
       call rzero(vtrans,ltott*ldimt1)
       call rzero(vdiff ,ltott*ldimt1)
       call rzero(u,ntotcv)
-      call usr_particles_init
       call cmtuic
       if(ifrestart) call my_full_restart !  Check restart files. soon...
 
@@ -265,14 +236,21 @@ c     ! save velocity on fine mesh for dealiasing
             vz(i,j,k,e) = uz
             vtrans(i,j,k,e,irho)  = rho
             vtrans(i,j,k,e,icv)= rho*cv
-            vtrans(i,j,k,e,icp)= rho*cp
+            vtrans(i,j,k,e,icp)= e_internal 
             phig(i,j,k,e)  = phi
             pr(i,j,k,e)    = pres
             u(i,j,k,irg,e) = phi*rho
             u(i,j,k,irpu,e)= phi*rho*ux
             u(i,j,k,irpv,e)= phi*rho*uy
             u(i,j,k,irpw,e)= phi*rho*uz
-            u(i,j,k,iret,e)= phi*rho*(cv*temp+0.5*(ux**2+uy**2+uz**2))
+!            e_internal= (pres-(AAref*(1.-OMref/(R1ref
+!     >     *rho0ref/rho))*exp(-R1ref*rho0ref/rho)
+!     >     +BBref*(1.-OMref/(R2ref*rho0ref/rho))*exp(-R2ref*
+!     >     *rho0ref/rho)))/(OMref*rho)
+            
+            u(i,j,k,iret,e)= phi*rho*(e_internal+0.5*(ux**2+uy**2
+     >                       +uz**2)) 
+  
             vdiff(i,j,k,e,imu) = mu
             vdiff(i,j,k,e,iknd)= udiff
             vdiff(i,j,k,e,ilam)= lambda

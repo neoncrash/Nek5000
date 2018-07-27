@@ -21,7 +21,7 @@
       ntol=1.0e-10
 
       if (icalld .eq. 0) then
-         if (nio .eq. 0) write(6,*) 'zeroing out entropy stack',istep
+         write(6,*) 'zeroing out entropy stack',istep
          icalld=1
          call rzero(s,ntot)
          call rzero(s(1,1,2),ntot) ! s_{n-1}
@@ -30,13 +30,15 @@
 
 ! compute the current entropy. This actually needs to go back in the
 ! usr file because it's EOS-dependent
-      rgam=rgasref/(gmaref-1.0)
+!      rgam=rgasref/(gmaref-1.0)
       do i=1,ntot
          rho=max(vtrans(i,1,1,1,irho),ntol)
-         s(i,1,1)=rgam*rho*log(pr(i,1,1,1)/(rho**gmaref))
+!NTN Change entropy S of JWL EOS
+         s(i,1,1)=rho*cvgref*log(t(i,1,1,1,1)/(rho**OMref))
+!        s(i,1,1)=rgam*rho*log(pr(i,1,1,1)/(rho**gmaref)) 
       enddo
 
-      if (stage .eq. 1) then
+      if (stage .eq. 1) then  !NOTE FOR STAGE
 ! push the stack
          call copy(s(1,1,2),s(1,2,1),ntot) ! s_{n-1}=s_n
          call copy(s(1,2,1),s(1,1,1),ntot) ! fill s_n
@@ -67,19 +69,22 @@
       savg    =    glsc2(tlag,bm1,ntot)
       savg    = -savg/volvm1
       call cadd2(scrent,tlag,savg,ntot)
+!NTN change here
       maxdiff =     glamax(scrent,ntot)
       if (maxdiff.le.0.0) then
          write(deathmessage,*) 'zero maxdiff usually means NAN$'
-         call exittr(deathmessage,maxdiff,istep)
+!         call exittr(deathmessage,maxdiff,istep)
 !     else
 !        if (nio .eq. 0) write (6,*) 'max(s-<s>)=',maxdiff, meshh(1)
       endif
+!*************
       call entropy_residual(tlag) ! fill res2
       call copy(res2(1,1,1,1,2),res2,ntot) ! raw residual in res2
       call wavevisc(t(1,1,1,1,3))
+!NTN comment here
       call resvisc(res2) ! overwrite res2
       call evmsmooth(res2,t(1,1,1,1,3),.true.) ! endpoints=.false.
-                                               ! is intended to
+!NTN                                            ! is intended to
                                                ! preserve face states,
                                                ! but this is easier to
                                                ! test 1D
@@ -355,6 +360,7 @@ c-----------------------------------------------------------------------
                enddo
             enddo
          enddo
+!NTN comment here
          call copy(resvisc(1,1,1,e),rtmp,nxyz)
       enddo
 
