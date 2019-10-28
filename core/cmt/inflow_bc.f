@@ -169,7 +169,7 @@ c                                     !     ux,uy,uz
             wbc(l,f,e,isnd) = sqrt(cp/cv*pres/rho) ! too perfect?
             wbc(l,f,e,ithm) = temp      ! definitely too perfect!
 !           wbc(l,f,e,icpf) = rho*cp ! NEED EOS WITH TEMP Dirichlet, userbc
-            wbc(l,f,e,icpf) = e_internal
+            wbc(l,f,e,icpf) = cv*temp!e_internal
             wbc(l,f,e,icvf) = rho*cv ! NEED EOS WITH TEMP Dirichlet, userbc
 
          else ! supersonic inflow
