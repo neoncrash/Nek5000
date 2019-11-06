@@ -1,3 +1,6 @@
+! JH100919
+! Now with some code introduced by Jacob's work on Tait-equation water
+! mixture modeling. Commented out until shocks are working in essplit
 C> @file driver3_cmt.f routines for primitive variables, usr-file interfaces
 C> and properties
 
@@ -53,7 +56,7 @@ C> conserved unknowns U
 ! now mass-specific
          call invcol2(energy,u(1,1,1,irg,e),nxyz)
 ! don't forget to get density where it belongs
-         call invcol3(vtrans(1,1,1,e,irho),u(1,1,1,irg,e),phig(1,1,1,e),
+         call invcol3(vtrans(1,1,1,e,jrho),u(1,1,1,irg,e),phig(1,1,1,e),
      >                nxyz)
 ! JH020718 long-overdue sanity checks
          emin=vlmin(energy,nxyz)
@@ -61,32 +64,25 @@ C> conserved unknowns U
             ifaile=lglel(e)
             write(6,*) stage,nid, ' HAS NEGATIVE ENERGY ',emin,lglel(e)
          endif
+!! JH070219 Tait mixture model mass fractions. just one for now
+!c JB080119 go throug hmultiple species
+!         call invcol3(t(1,1,1,e,2),u(1,1,1,imfrac,e),
+!     >                u(1,1,1,irg,e),
+!     >                nxyz)
+!c        do iscal = 1,NPSCAL
+!c        call invcol3(t(1,1,1,e,1+iscal),u(1,1,1,imfrac+iscal-1,e),
+!c    >                u(1,1,1,irg,e),
+!c    >                nxyz)
+!c        enddo
          call tdstate(e,energy) ! compute state, fill ifailt
       enddo
 
 ! Avoid during EBDG testing
+! JH070219 Tait mixture model: man up and test T(:,2) for positivity
+!          someday.
       call poscheck(ifailr,'density    ')
       call poscheck(ifaile,'energy     ')
       call poscheck(ifailt,'temperature')
-
-! setup_convect has the desired effect
-! if IFPART=F
-! if IFCHAR=F
-! if IFCONS=T
-! if igeom .ne. 1
-! if param(99) .ge. 0
-!-----------------------------------------------------------------------
-!     call setup_convect(0)
-!-----------------------------------------------------------------------
-! to make life easier until we master this stuff and harmonize even better with nek,
-! I'm including 'DEALIAS' and calling set_convect_cons here
-      if (lxd.gt.lx1) then
-         call set_convect_cons (vxd,vyd,vzd,vx,vy,vz)
-      else
-         call copy(vxd,vx,ntot) 
-         call copy(vyd,vy,ntot) 
-         call copy(vzd,vz,ntot) 
-      endif
 
       return
       end
@@ -123,8 +119,9 @@ c We have perfect gas law. Cvg is stored full field
             write(6,'(i6,a26,e12.4,3i2,i8,3e15.6)') ! might want to be less verbose
      >      nid,' HAS NEGATIVE TEMPERATURE ', x,i,j,k,eg,temp,rho,pres
          endif
-         vtrans(i,j,k,e,icp)= e_internal
-         vtrans(i,j,k,e,icv)= cv*rho
+         vtrans(i,j,k,e,jen)= e_internal
+         vtrans(i,j,k,e,jcv)= cv*rho
+         vtrans(i,j,k,e,jcp)= cp*rho
          t(i,j,k,e,1)       = temp
          pr(i,j,k,e)        = pres
          csound(i,j,k,e)    = asnd
@@ -148,18 +145,18 @@ c-----------------------------------------------------------------------
 !        varsic(eqnum)=u(ix,iy,iz,eqnum,e)  
 !     enddo
       phi  = phig  (ix,iy,iz,e)
-      rho  = vtrans(ix,iy,iz,e,irho)
+      rho  = vtrans(ix,iy,iz,e,jrho)
       pres = pr    (ix,iy,iz,e)
       if (rho.ne.0) then
-         cv   = vtrans(ix,iy,iz,e,icv)/rho
-!        cp   = vtrans(ix,iy,iz,e,icp)/rho
-         e_internal = vtrans(ix,iy,iz,e,icp)
+         cv   = vtrans(ix,iy,iz,e,jcv)/rho
+         cp   = vtrans(ix,iy,iz,e,jcp)/rho
+         e_internal = vtrans(ix,iy,iz,e,jen)
       endif
       asnd = csound(ix,iy,iz,e)
-      mu     = vdiff(ix,iy,iz,e,imu)
-      udiff  = vdiff(ix,iy,iz,e,iknd)
+      mu     = vdiff(ix,iy,iz,e,jmu)
+      udiff  = vdiff(ix,iy,iz,e,jknd)
 ! MAKE SURE WE''RE NOT USING UTRANS FOR ANYTHING IN pre-v16 code!!
-      lambda = vdiff(ix,iy,iz,e,ilam)
+      lambda = vdiff(ix,iy,iz,e,jlam)
 
       return
       end
@@ -186,6 +183,8 @@ c-----------------------------------------------------------------------
       call rzero(vtrans,ltott*ldimt1)
       call rzero(vdiff ,ltott*ldimt1)
       call rzero(u,ntotcv)
+! JH100919 where does particle stuff live these days?
+!     call usr_particles_init
 
 #ifdef LPM
       call lpm_init(1)
@@ -253,6 +252,9 @@ c     ! save velocity on fine mesh for dealiasing
 
       subroutine cmtuic
 ! overlaps with setics. -DCMT will require IFDG as well
+! need to make sure setics has no effect.
+! JH070219 cmtuic now sets U and U alone. EVERYTHING else should come
+!          from compute_primitive_variables
       include 'SIZE'
       include 'SOLN'
       include 'PARALLEL'
@@ -267,23 +269,19 @@ c     ! save velocity on fine mesh for dealiasing
             call nekasgn (i,j,k,e)
             call cmtasgn (i,j,k,e)
             call useric  (i,j,k,eg)
-            vx(i,j,k,e) = ux
-            vy(i,j,k,e) = uy
-            vz(i,j,k,e) = uz
-            vtrans(i,j,k,e,irho)  = rho
-            vtrans(i,j,k,e,icv)= rho*cv
-            vtrans(i,j,k,e,icp)= e_internal
-            phig(i,j,k,e)  = phi
-            pr(i,j,k,e)    = pres
+            phig(i,j,k,e)  = phi ! only sane way to run CMT-nek without
+                                 ! particles is to have useric set phi=1
             u(i,j,k,irg,e) = phi*rho
             u(i,j,k,irpu,e)= phi*rho*ux
             u(i,j,k,irpv,e)= phi*rho*uy
             u(i,j,k,irpw,e)= phi*rho*uz
             u(i,j,k,iret,e)=phi*rho*(e_internal+0.5*(ux**2+uy**2+uz**2))
-            vdiff(i,j,k,e,imu) = mu
-            vdiff(i,j,k,e,iknd)= udiff
-            vdiff(i,j,k,e,ilam)= lambda
-            t(i,j,k,e,1) = temp
+!            u(i,j,k,imfrac,e)=phi*rho*ps(1)
+!c JB080119 multiple species
+!               t(i,j,k,e,2) = ps(l)
+!c           do l = 2,NPSCAL
+!c               t(i,j,k,e,l) = ps(l-1)
+!c           enddo
          enddo
          enddo
          enddo
@@ -315,7 +313,7 @@ c     ! save velocity on fine mesh for dealiasing
          call lpm_usr_particles_io(istep)
 #endif
 
-         call exitt
+        call exitt
       endif
 
       return
