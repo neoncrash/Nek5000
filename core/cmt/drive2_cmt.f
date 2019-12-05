@@ -8,20 +8,20 @@ c-----------------------------------------------------------------------
       if (nio.eq.0) write(6,*)'Set up CMT-Nek'    
       if (toteq.ne.5) then
          if (nio.eq.0) write(6,*)'toteq is low ! toteq = ',toteq
-         if (nio.eq.0) write(6,*) 'Reset toteq in SIZE to 5'
+         if (nio.eq.0) write(6,*) 'Reset toteq in CMTSIZE to 5'
          call exitt
       endif
       if (ifrestart) then
          ifheat = .true. ! almost certainly incorrect
       endif
       call setup_cmt_commo
-
       iostep2=iostep
       iostep=9999999
 !BAD Jul022019 Added a flag to signal dump of solution needs to happen
 !and added a variable as a physical time step goal for the code to check
       dumped_stage = .FALSE.
       time_iotarg = iotime  
+c     
 c     call setup_cmt_param
       return
       end
@@ -35,38 +35,7 @@ c     call setup_cmt_param
       enddo
       return
       end
-!-----------------------------------------------------------------------
-      subroutine setup_cmt_param
-      INCLUDE 'SIZE'
-      INCLUDE 'INPUT'
-      INCLUDE 'CMTDATA'
-      INCLUDE 'CMTBCDATA'
-
-      real  MixtPerf_R_CpG, MixtPerf_T_DPR, MixtPerf_C_GRT
-     >                 ,MixtPerf_Ho_CpTUVW,MixtPerf_Cp_CvR,MixtPerf_R_M
-     >                 ,MixtPerf_G_CpR      
-      external MixtPerf_R_CpG, MixtPerf_T_DPR, MixtPerf_C_GRT
-     >                 ,MixtPerf_Ho_CpTUVW,MixtPerf_Cp_CvR,MixtPerf_R_M
-     >                 ,MixtPerf_G_CpR      
-
-      cip_adhoc=10.0
-      cvgref     = param(104)
-c     gmaref     = param(105)
-      molmass    = param(106)
-      muref      = param(107)
-      coeflambda = param(108)
-      suthcoef   = param(109)
-      reftemp    = param(110)
-      prlam      = param(111)
-      pinfty     = param(112)
-      rgasref    = MixtPerf_R_M(molmass,dum)
-      cpgref     = MixtPerf_Cp_CvR(cvgref,rgasref)
-      gmaref     = MixtPerf_G_CpR(cpgref,rgasref) 
-! put these in rea file someday
-      return
-      end
-c------------------------------------------------------------------------
-
+!---------------------------------------------------------
       subroutine limiter
 ! EBDG Stuff. WHERE'S PHI????
       include 'SIZE'
@@ -100,7 +69,7 @@ c------------------------------------------------------------------------
 
       do e=1,nelt
 
-!        rhomin=vlmin(vtrans(1,1,1,e,irho),nxyz)
+!        rhomin=vlmin(vtrans(1,1,1,e,jrho),nxyz)
          rhomin=vlmin(u(1,1,1,1,e),nxyz)
 
 ! positivity-preserving limiter of Zhang and Shu: density
@@ -228,39 +197,53 @@ c------------------------------------------------------------------------
       return
       end
 
-!-----------------------------------------------------------------------
-! JH082118 shock detectors. Test shock detectors in usr file extensively.
-!          port them here after they have earned our trust.
-!-----------------------------------------------------------------------
 
-      subroutine AVeverywhere(shkdet)
-      include 'SIZE'
-      include 'TOTAL'
-      real shkdet(nelt)
-      call rone(shkdet,nelt)
+!-----------------------------------------------------------------------
+      subroutine setup_cmt_param
+      INCLUDE 'SIZE'
+      INCLUDE 'INPUT'
+      INCLUDE 'CMTDATA'
+      INCLUDE 'CMTBCDATA'
+
+      real  MixtPerf_R_CpG, MixtPerf_T_DPR, MixtPerf_C_GRT
+     >                 ,MixtPerf_Ho_CpTUVW,MixtPerf_Cp_CvR,MixtPerf_R_M
+     >                 ,MixtPerf_G_CpR      
+      external MixtPerf_R_CpG, MixtPerf_T_DPR, MixtPerf_C_GRT
+     >                 ,MixtPerf_Ho_CpTUVW,MixtPerf_Cp_CvR,MixtPerf_R_M
+     >                 ,MixtPerf_G_CpR      
+
+      cip_adhoc=10.0
+      cvgref     = param(104)
+c     gmaref     = param(105)
+      molmass    = param(106)
+      muref      = param(107)
+      coeflambda = param(108)
+      suthcoef   = param(109)
+      reftemp    = param(110)
+      prlam      = param(111)
+      pinfty     = param(112)
+      rgasref    = MixtPerf_R_M(molmass,dum)
+      cpgref     = MixtPerf_Cp_CvR(cvgref,rgasref)
+      gmaref     = MixtPerf_G_CpR(cpgref,rgasref) 
+! Get rid of these asap
       return
       end
+c------------------------------------------------------------------------
 
-      subroutine limiter_only(shkdet)
-! worst ad hoc shock detector ever. read a limiter function from CMTDATA
-! epsebdg is the only one we have so far. If it's bigger than some threshold,
-! apply AV there too.
-      include 'SIZE'
-      include 'CMTDATA'
-      real shkdet(nelt)
-      integer e
-
-      call rzero(shkdet,nelt)
-      tol=1.0e-5
-
-      if (.not.time4av) then
-         do e=1,nelt
-            if (abs(epsebdg(e)) .gt. tol) shkdet(e)=1.0
-         enddo
+      function logmean(l,r)
+! computes (l-r)/(log(l)-log(r)) cleanly when l -> r
+! Appendix B, Ismail & Roe (2009)
+      real logmean
+      real l,r
+      real f,u,zeta
+      parameter (eps=0.02)
+      zeta=l/r
+      f=(zeta-1.0)/(zeta+1.0)
+      u=f**2
+      if (u.lt.eps) then
+         f=1.0+u/3.0+0.2*u**2+u**3/7.0
+      else
+         f=0.5*log(zeta)/f
       endif
-
-      emax=glamax(shkdet,nelt)
-      if (nio.eq.0) write(6,*) 'max shock detector =',emax
-
-      return
+      logmean=0.5*(l+r)/f
       end

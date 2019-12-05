@@ -48,7 +48,7 @@ c     Solve the Euler equations
          call compute_primitive_vars(1) ! get good mu
 !! JH090518 Shock detector is not ready for prime time. Lean on EVM for
 !!          sane default 
-!!        call perssonperaire(t(1,1,1,1,5),vtrans(1,1,1,1,irho),scrent)
+!!        call perssonperaire(t(1,1,1,1,5),vtrans(1,1,1,1,jrho),scrent)
          call limiter
 !!        call wavevisc(t(1,1,1,1,3))
 !! JH082718 mask viscosity in t(:,3)
@@ -89,19 +89,11 @@ c compute_rhs_dt for the 5 conserved variables
          do e=1,nelt
             do eq=1,toteq
             do i=1,nxyz1
-c multiply u with bm1 as res has been multiplied by bm1 in compute_rhs
-               u(i,1,1,eq,e) = bm1(i,1,1,e)*tcoef(1,stage)
-     >                     *res3(i,1,1,eq,e)+bm1(i,1,1,e)*
-     >                     tcoef(2,stage)*u(i,1,1,eq,e)-
-     >                     tcoef(3,stage)*res1(i,1,1,e,eq)
-c              u(i,1,1,eq,e) = bm1(i,1,1,e)*u(i,1,1,eq,e) - DT *
-c    >                        (c1*res1(i,1,1,e,eq) + c2*res2(i,1,1,e,eq)
-c    >                       + c3*res3(i,1,1,e,eq))
-!-----------------------------------------------------------------------
-! JH111815 in fact, I'd like to redo the time marching stuff above and
-!          have an fbinvert call for res1
-               u(i,1,1,eq,e) = u(i,1,1,eq,e)/bm1(i,1,1,e)
-!-----------------------------------------------------------------------
+! JH071218 res1 is premultiplied by B^{-1}
+               u(i,1,1,eq,e) = tcoef(1,stage)*res3(i,1,1,eq,e)+
+     >                         tcoef(2,stage)*u(i,1,1,eq,e)-
+     >                         tcoef(3,stage)*res1(i,1,1,e,eq)
+ 
             enddo
             enddo
          enddo ! nelt
@@ -129,7 +121,7 @@ c    >                       + c3*res3(i,1,1,e,eq))
 !          For now, tuck all this stuff in compute_rhs_and_dt and query
 !          iostep2 at stage==1.
 !-----------------------------------------------------------------------
-!     call copy(t(1,1,1,1,2),vtrans(1,1,1,1,irho),nxyz1*nelt)
+!     call copy(t(1,1,1,1,2),vtrans(1,1,1,1,jrho),nxyz1*nelt)
 !     if (mod(istep,iostep2).eq.0) then
 !     if (mod(istep,iostep2).eq.0.or.istep.eq.1)then
 !     if (mod(istep,iostep).eq.0.or.istep.eq.1)then
@@ -161,11 +153,11 @@ C> Store it in res1
       include 'CMTDATA'
       include 'CTIMER'
 
-      integer lfq,heresize,hdsize
+      integer lfq,heresize,hdsize !$remove lines, ask about lfq
       parameter (lfq=lx1*lz1*2*ldim*lelt,
      >                   heresize=nqq*3*lfq,! guarantees transpose of Q+ fits
      >                   hdsize=toteq*3*lfq) ! might not need ldim
-! not sure if viscous surface fluxes can live here yet
+! not sure if viscous surface fluxes can live here yet            !$till here
       common /CMTSURFLX/ flux(heresize),graduf(hdsize)
       real graduf
 
@@ -180,7 +172,8 @@ C> Store it in res1
       if (lxd.gt.lx1) then
          call set_dealias_face
       else
-         call set_alias_rx(istep)
+         call cmt_metrics(istep)
+!         call set_alias_rx(istep)
       endif
 
 !     call set_dealias_rx ! done in set_convect_cons,
@@ -190,7 +183,7 @@ C> Store it in res1
 !! JH090518 Shock detector is not ready for prime time. Lean on EVM for
 !!          sane default 
 !!     if (stage.eq.1)
-!!    >call shock_detector(t(1,1,1,1,5),vtrans(1,1,1,1,irho),scrent)
+!!    >call shock_detector(t(1,1,1,1,5),vtrans(1,1,1,1,jrho),scrent)
 !     if (1.eq.2) then
       call limiter
 !     endif
@@ -212,7 +205,7 @@ C> Store it in res1
 !          RK loop at the END of the time step, but I lose custody
 !          of commons in SOLN between cmt_nek_advance and the rest of
 !          the time loop.
-         call copy(t(1,1,1,1,2),vtrans(1,1,1,1,irho),nxyz*nelt)
+         call copy(t(1,1,1,1,2),vtrans(1,1,1,1,jrho),nxyz*nelt)
          call cmtchk
 
 !        if (mod(istep,iostep2).eq.0) then
@@ -259,8 +252,8 @@ C> Store it in res1
 C> Restrict via \f$\mathbf{E}\f$ to get primitive and conserved variables
 C> on interior faces \f$\mathbf{U}^-\f$ and neighbor faces
 C> \f$\mathbf{U}^+\f$; store in CMTSURFLX
-      call fluxes_full_field
 
+      call cmt_usrsurf  
 C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       nstate=nqq
       nfq=lx1*lz1*2*ldim*nelt
@@ -274,28 +267,8 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       dumchars='after_inviscid'
 !     call dumpresidue(dumchars,999)
 
-               !                   -
-      iuj=iflx ! overwritten with U -{{U}}
-!-----------------------------------------------------------------------
-!                          /     1  T \
-! JH082316 imqqtu computes | I - -QQ  | U for all 5 conserved variables
-!                          \     2    /
-! which I now make the following be'neon-billboarded assumption:
-!***********************************************************************
-! ASSUME CONSERVED VARS U1 THROUGH U5 ARE CONTIGUOUSLY STORED
-! SEQUENTIALLY IN /CMTSURFLX/ i.e. that iu2=iu1+1, etc.
-! CMTDATA BETTA REFLECT THIS!!!
-!***********************************************************************
-C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}^{\intercal}\nabla v\}\} \cdot \left[\mathbf{U}\right] dA\f$
-!      if (1.eq.2) then
-      ium=(iu1-1)*nfq+iwm
-      iup=(iu1-1)*nfq+iwp
-      call   imqqtu(flux(iuj),flux(ium),flux(iup))
-      call   imqqtu_dirichlet(flux(iuj),flux(iwm),flux(iwp))
-      call igtu_cmt(flux(iwm),flux(iuj),graduf) ! [[u]].{{gradv}}
-      dumchars='after_igtu'
-!     call dumpresidue(dumchars,999)
-!      endif
+!     call gtu_wrapper(fatface) ! for penalty methods. not yet
+
 
 C> res1+=\f$\int \left(\nabla v\right) \cdot \left(\mathbf{H}^c+\mathbf{H}^d\right)dV\f$ 
 C> for each equation (inner), one element at a time (outer)
@@ -311,34 +284,49 @@ C> for each equation (inner), one element at a time (outer)
 !          at once, then this and its dependents can still have their
 !          loop order flipped and things like totalh declared for
 !          15 full fields or more.
+! JH060418 totalh is now 15 elements. interchanged with equation loop
 !-----------------------------------------------------------------------
 ! Get user defined forcing from userf defined in usr file
          call cmtusrf(e)
-         call compute_gradients(e) ! gradU
+         call compute_gradients_contra(e) ! gradU
+         i_cvars=1
          do eq=1,toteq
-            call convective_cmt(e,eq)        ! convh & totalh -> res1
-!     if (1.eq.2) then
+            call br1auxflux(e,gradu(1,1,eq),fatface(i_cvars)) ! SEE HEAT.USR
+            i_cvars=i_cvars+nfq
+         enddo
+         call convective_cmt(e)        ! convh & totalh -> res1
+         do eq=1,toteq
             call    viscous_cmt(e,eq) ! diffh -> half_iku_cmt -> res1
                                              !       |
                                              !       -> diffh2graduf
 ! Compute the forcing term in each of the 5 eqs
-            call compute_forcing(e,eq)
-!     endif
+            if (1.eq.2) then
+               call compute_forcing(e,eq)
+            endif
          enddo
       enddo
+ 
       dumchars='after_elm'
 !     call dumpresidue(dumchars,999)
 
 !      if (1.eq.2) then
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\right] dA\f$
-      call igu_cmt(flux(iwp),graduf,flux(iwm))
+!      call igu_cmt(flux(iwp),graduf,flux(iwm)) !$replace with line 259
+      call br1primary(fatface(iwm),graduf)
       do eq=1,toteq
-         ieq=(eq-1)*ndg_face+iwp
+!         ieq=(eq-1)*ndg_face+iwp               !$replace with line 261
+         ieq=(eq-1)*ndg_face+iwm
 !Finally add viscous surface flux functions of derivatives to res1.
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
 !      endif
-      dumchars='end_of_rhs'
+      dumchars='end_of_rhs' !$add below lines 266-269
+! one last
+      do eq=1,toteq
+         call col2(res1(1,1,1,1,eq),jacmi,nelt*lx1*ly1*lz1)
+      enddo
+
+
 !      call dumpresidue(dumchars,999)
 !      call exitt
       return
