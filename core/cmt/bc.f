@@ -3,7 +3,7 @@ C> @file bc.f Boundary condition routines
 C> \ingroup bcond
 C> @{
 C> Determining rind state for Dirichlet boundary conditions
-      subroutine InviscidBC(wminus,wbc,nstate)
+      subroutine InviscidBC(flux)
 !-------------------------------------------------------------------------------
 ! JH091514 A fading copy of RFLU_ModAUSM.F90 from RocFlu
 !-------------------------------------------------------------------------------
@@ -12,8 +12,109 @@ C> Determining rind state for Dirichlet boundary conditions
 !      USE ModSpecies, ONLY: t_spec_type
 !#endif
       include 'SIZE'
+      include 'INPUT' ! if3d
+      include 'CMTDATA' ! do we need this without outflsub?
+!     include 'TSTEP' ! for ifield?
+      include 'GEOM'
+
+! ==============================================================================
+! Arguments
+! ==============================================================================
+      real flux(lx1*lz1,2*ldim,nelt,toteq)
+
+! ==============================================================================
+! Locals
+! ==============================================================================
+
+      integer e,f,i,k,nxz,nface,ifield,eq
+
+      common /nekcb/ cb
+      character*3 cb
+      COMMON /SCRNS/ wminus(nparm,lxz),wplus(nparm,lxz),
+     >               jaminus(3,lxz),japlus(3,lxz),
+     >               uminus(toteq,lxz),uplus(toteq,lxz),
+     >               flx(toteq,lxz)
+      real wminus,wplus,jaminus,japlus,uminus,uplus,flx
+      external cmt_usr2pt,llf_euler
+
+      nface = 2*ldim
+      nxz   = lx1*lz1
+      ifield= 1 ! You need to figure out the best way of dealing with
+                ! this variable
+
+      do e=1,nelt
+      do f=1,nface
+
+         cb=cbc(f,e,ifield)
+         if (cb.ne.'E  '.and.cb.ne.'P  ') then ! cbc bndy
+! BC routines to fill face points
+! facind + userbc for wminus, uminus
+! dirichlet routines for wplus, uplus
+            if (cb.eq.'v  ' .or. cb .eq. 'V  ') then
+              call inflow(f,e,wminus,wplus,uminus,uplus,nparm)
+            elseif (cb.eq.'O  ') then
+              call outflow(f,e,wminus,wplus,uminus,uplus,nparm)
+            elseif (cb .eq. 'W  ' .or. cb .eq.'I  '.or.cb .eq.'SYM')then
+              call wallbc_inviscid(f,e,wminus,wplus,uminus,uplus,nparm)
+            endif 
+
+! convert surface normals into metric terms for two-point fluxes (just
+! face Jacobian times normal vector)
+
+            do i=1,nxz
+               jaminus(1,i)=unx(i,1,f,e)
+               jaminus(2,i)=uny(i,1,f,e)
+            enddo
+            if(if3d) then
+               do i=1,nxz
+                  jaminus(3,i)=unz(i,1,f,e)
+               enddo
+            else
+               do i=1,nxz
+                  jaminus(3,i)=0.0
+               enddo
+            endif
+! boundaries are watertight lol
+            call copy(japlus,jaminus,3*nxz)
+
+! two-point flux
+            call sequential_flux(flx,wminus,wplus,uminus,uplus,jaminus,
+     >                           japlus,cmt_usr2pt,nparm,nxz)
+            do eq=1,toteq
+            do i=1,nxz
+            flux(i,f,e,eq)=flux(i,f,e,eq)+flx(eq,i)*jface(i,1,f,e)
+! overwrite w(5,:) with sound speed
+               wminus(5,i)=wminus(isnd,i)
+               wplus (5,i)=wplus (isnd,i)
+            enddo
+            enddo
+
+! stabilization flux
+            call sequential_flux(flx,wminus,wplus,uminus,uplus,jaminus,
+     >                           japlus,llf_euler,toteq,nxz)
+            do eq=1,toteq
+            do i=1,nxz
+            flux(i,f,e,eq)=flux(i,f,e,eq)+flx(eq,i)*jface(i,1,f,e)
+            enddo
+            enddo
+
+         endif
+      enddo
+      enddo
+
+C> @}
+      return
+      end
+
+C> \ingroup bcond
+C> @{
+C> Mask to make sure Fsharp doesn't clobber boundary faces, where gs_op is null
+C> This routine intents to take a real array for all face points, bmask, and
+C> only zero out faces on boundaries. It is thus not limited to an array only
+C> of indicators.
+      subroutine bcmask_cmt(bmsk)
+      include 'SIZE'
       include 'INPUT' ! do we need this?
-      include 'GEOM' ! for unx
       include 'CMTDATA' ! do we need this without outflsub?
 !     include 'TSTEP' ! for ifield?
       include 'DG'
@@ -22,97 +123,29 @@ C> Determining rind state for Dirichlet boundary conditions
 ! Arguments
 ! ==============================================================================
       integer nstate,nflux
-      real wminus(lx1*lz1,2*ldim,nelt,nstate),
-     >     wbc(lx1*lz1,2*ldim,nelt,nstate)
+      real bmsk(lx1*lz1,2*ldim,nelt)
 
 ! ==============================================================================
 ! Locals
 ! ==============================================================================
 
       integer e,f,fdim,i,k,nxz,nface,ifield
-      parameter (lfd=lxd*lzd)
-! JH111815 legacy rocflu names.
-!
-! nx,ny,nz : outward facing unit normal components
-! fs       : face speed. zero until we have moving grid
-! jaco_c   : fdim-D GLL grid Jacobian
-! nm       : jaco_c, fine grid
-!
-! State on the interior (-, "left") side of the face
-! rl       : density
-! ul,vl,wl : velocity
-! tl       : temperature
-! al       : sound speed
-! pl       : pressure, then phi
-! cpl      : rho*cp
-! State on the exterior (+, "right") side of the face
-! rr       : density
-! ur,vr,wr : velocity
-! tr       : temperature
-! ar       : sound speed
-! pr       : pressure
-! cpr      : rho*cp
 
-      COMMON /SCRNS/ nx(lfd), ny(lfd), nz(lfd), rl(lfd), ul(lfd),
-     >               vl(lfd), wl(lfd), pl(lfd), tl(lfd), al(lfd),
-     >               cpl(lfd),rr(lfd), ur(lfd), vr(lfd), wr(lfd),
-     >               pr(lfd),tr(lfd), ar(lfd),cpr(lfd),phl(lfd),fs(lfd),
-     >               jaco_f(lfd),flx(lfd,toteq),jaco_c(lx1*lz1)
-      real nx, ny, nz, rl, ul, vl, wl, pl, tl, al, cpl, rr, ur, vr, wr,
-     >                pr,tr, ar,cpr,phl,fs,jaco_f,flx,jaco_c
-
-!     REAL vf(3)
-      real nTol
-      character*132 deathmessage
       common /nekcb/ cb
       character*3 cb
-
-      nTol = 1.0E-14
 
       fdim=ldim-1
       nface = 2*ldim
       nxz   = lx1*lz1
-      nxzd  = lxd*lzd
       ifield= 1 ! You need to figure out the best way of dealing with
                 ! this variable
 
-!     if (outflsub)then
-!        call maxMachnumber
-!     endif
       do e=1,nelt
       do f=1,nface
 
          cb=cbc(f,e,ifield)
          if (cb.ne.'E  '.and.cb.ne.'P  ') then ! cbc bndy
-
-!-----------------------------------------------------------------------
-! compute flux for weakly-enforced boundary condition
-!-----------------------------------------------------------------------
-
-            do j=1,nstate
-               do i=1,nxz
-                  if (abs(wbc(i,f,e,j)) .gt. ntol) then
-                  write(6,*) nid,j,i,wbc(i,f,e,j),wminus(i,f,e,j),cb,
-     > nstate
-                  write(deathmessage,*)  'GS hit a bndy,f,e=',f,e,'$'
-! Make sure you are not abusing this error handler
-                  call exitti(deathmessage,f)
-                  endif
-               enddo
-            enddo
-
-! JH060215 added SYM bc. Just use it as a slip wall hopefully.
-! JH021717 OK I just realized that this way doubles my userbc calls.
-!          not sure if face loop and if-block for cb is a better way
-!          to do it or not.
-            if (cb.eq.'v  ' .or. cb .eq. 'V  ') then
-              call inflow(nstate,f,e,wminus,wbc)
-            elseif (cb.eq.'O  ') then
-              call outflow(nstate,f,e,wminus,wbc)
-            elseif (cb .eq. 'W  ' .or. cb .eq.'I  '.or.cb .eq.'SYM')then
-              call wallbc_inviscid(nstate,f,e,wminus,wbc)
-            endif 
-
+            call rzero(bmsk(1,f,e),nxz)
          endif
       enddo
       enddo
@@ -130,6 +163,7 @@ C> viscosity, and strictly interior for physical viscosity.
       subroutine bcflux(flux,agradu,qminus)
 ! Need proper indexing and nekasgn & cmtasgn calls
       include 'SIZE'
+      include 'CMTSIZE'
       include 'INPUT'
       include 'DG'
 !     include 'NEKUSE'
@@ -243,15 +277,15 @@ C> @}
          dU3z=dU(i,f,ie,3,3)
          dU4z=dU(i,f,ie,4,3)
          dU5z=dU(i,f,ie,5,3)
-         rho   =wstate(i,f,ie,irho)
-         cv    =wstate(i,f,ie,icvf)/rho
-         lambda=wstate(i,f,ie,ilamf)
-         mu    =wstate(i,f,ie,imuf)
+         rho   =wstate(i,f,ie,jrho)
+         cv    =wstate(i,f,ie,jcvf)/rho
+         lambda=wstate(i,f,ie,jlamf)
+         mu    =wstate(i,f,ie,jmuf)
          K     =0.0 ! ADIABATIC HARDCODING
-         u1    =wstate(i,f,ie,iux)
-         u2    =wstate(i,f,ie,iuy)
-         u3    =wstate(i,f,ie,iuz)
-         E     =wstate(i,f,ie,iu5)/rho
+         u1    =wstate(i,f,ie,jux)
+         u2    =wstate(i,f,ie,juy)
+         u3    =wstate(i,f,ie,juz)
+         E     =wstate(i,f,ie,ju5)/rho
          lambdamu=lambda+mu
          kmcvmu=K-cv*mu
          flux(i)=
@@ -293,15 +327,15 @@ C> @}
          dU3z=dU(i,f,ie,3,3)
          dU4z=dU(i,f,ie,4,3)
          dU5z=dU(i,f,ie,5,3)
-         rho   =wstate(i,f,ie,irho)
-         cv    =wstate(i,f,ie,icvf)/rho
-         lambda=wstate(i,f,ie,ilamf)
-         mu    =wstate(i,f,ie,imuf)
+         rho   =wstate(i,f,ie,jrho)
+         cv    =wstate(i,f,ie,jcvf)/rho
+         lambda=wstate(i,f,ie,jlamf)
+         mu    =wstate(i,f,ie,jmuf)
          K     =0.0 ! ADIABATIC HARDCODING
-         u1    =wstate(i,f,ie,iux)
-         u2    =wstate(i,f,ie,iuy)
-         u3    =wstate(i,f,ie,iuz)
-         E     =wstate(i,f,ie,iu5)/rho
+         u1    =wstate(i,f,ie,jux)
+         u2    =wstate(i,f,ie,juy)
+         u3    =wstate(i,f,ie,juz)
+         E     =wstate(i,f,ie,ju5)/rho
          lambdamu=lambda+mu
          kmcvmu=K-cv*mu
          flux(i)=
@@ -343,15 +377,15 @@ C> @}
          dU3z=dU(i,f,ie,3,3)
          dU4z=dU(i,f,ie,4,3)
          dU5z=dU(i,f,ie,5,3)
-         rho   =wstate(i,f,ie,irho)
-         cv    =wstate(i,f,ie,icvf)/rho
-         lambda=wstate(i,f,ie,ilamf)
-         mu    =wstate(i,f,ie,imuf)
+         rho   =wstate(i,f,ie,jrho)
+         cv    =wstate(i,f,ie,jcvf)/rho
+         lambda=wstate(i,f,ie,jlamf)
+         mu    =wstate(i,f,ie,jmuf)
          K     =0.0 ! ADIABATIC HARDCODING
-         u1    =wstate(i,f,ie,iux)
-         u2    =wstate(i,f,ie,iuy)
-         u3    =wstate(i,f,ie,iuz)
-         E     =wstate(i,f,ie,iu5)/rho
+         u1    =wstate(i,f,ie,jux)
+         u2    =wstate(i,f,ie,juy)
+         u3    =wstate(i,f,ie,juz)
+         E     =wstate(i,f,ie,ju5)/rho
          lambdamu=lambda+mu
          kmcvmu=K-cv*mu
          flux(i)=

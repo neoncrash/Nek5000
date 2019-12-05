@@ -17,8 +17,6 @@ C> @file wall_bc.f Dirichlet states for wall boundary conditions
       real    facew(lx1*lz1,2*ldim,nelt,nstate)
       real    wbc(lx1*lz1,2*ldim,nelt,nstate) 
       common /nekcb/ cb
-      logical noslip
-      data noslip /.false./  
       character*3 cb
 
       tol=1.0e-10
@@ -26,8 +24,9 @@ C> @file wall_bc.f Dirichlet states for wall boundary conditions
 ! rind state for inviscid fluxes is different from viscous fluxes? not
 ! sure what the right thing to do is.
 ! JH031617 Collis (CTR 2002-ish), Hartmann & Houston (2006-8) probably BR
-!          and Dolejsi and Feistatuer (2015) (check that)
+!          and Dolejsi and Feistauer (2015) (check that)
 !          all say YES, inviscid rind and viscous rind are different.
+! JH121618 paresi too entropy-stable wallbc
       call facind(i0,i1,j0,j1,k0,k1,lx1,ly1,lz1,f)    
       ieg=lglel(e)
       l=0
@@ -40,35 +39,35 @@ C> @file wall_bc.f Dirichlet states for wall boundary conditions
          l=l+1
 
 ! bring this outside of the face point loop you moron
-         if (noslip) then ! physical not artvisc
+         if (abs(vdiff(ix,iy,iz,e,jlam)) .gt. tol) then ! physical not artvisc
 
-            wbc(l,f,e,iux)=ux
-            wbc(l,f,e,iuy)=uy
-            wbc(l,f,e,iuz)=uz
+            wbc(l,f,e,jux)=ux
+            wbc(l,f,e,juy)=uy
+            wbc(l,f,e,juz)=uz
 !-----------------------------------------------------------------
 ! JH112116 I need to check wbc(:,ipr) to make sure it is unchanced
 !          from inviscid computation (assuming that's the right
 !          answer for general viscous BC).
 !-----------------------------------------------------------------
-            wbc(l,f,e,iph) =phi
-            wbc(l,f,e,ithm)=temp
-            wbc(l,f,e,iu1) =facew(l,f,e,iu1)
-            wbc(l,f,e,iu2) =wbc(l,f,e,iu1)*ux
-            wbc(l,f,e,iu3) =wbc(l,f,e,iu1)*uy
-            wbc(l,f,e,iu4) =wbc(l,f,e,iu1)*uz
+            wbc(l,f,e,jph) =phi
+            wbc(l,f,e,jthm)=temp
+            wbc(l,f,e,ju1) =facew(l,f,e,ju1)
+            wbc(l,f,e,ju2) =wbc(l,f,e,ju1)*ux
+            wbc(l,f,e,ju3) =wbc(l,f,e,ju1)*uy
+            wbc(l,f,e,ju4) =wbc(l,f,e,ju1)*uz
             if (cb .eq. 'W  ') then ! consider taking properties from userbc too
-!           wbc(l,f,e,iu5)=wbc(l,f,e,iu1)*facew(l,f,e,icvf)
-               wbc(l,f,e,iu5)=phi*facew(l,f,e,icvf)*temp+
-     >         0.5/wbc(l,f,e,iu1)*(wbc(l,f,e,iu2)**2+wbc(l,f,e,iu3)**2+
-     >                          wbc(l,f,e,iu4)**2)
+!           wbc(l,f,e,ju5)=wbc(l,f,e,ju1)*facew(l,f,e,jcvf)
+               wbc(l,f,e,ju5)=phi*facew(l,f,e,jcvf)*temp+
+     >         0.5/wbc(l,f,e,ju1)*(wbc(l,f,e,ju2)**2+wbc(l,f,e,ju3)**2+
+     >                          wbc(l,f,e,ju4)**2)
             else ! BETTA JUST BE 'I  '
 !-------------------------------------------------------------
 ! JH111516 HARDCODING ADIABATIC WALL. DO SMARTER SOON
 !          METHOD "B"
-!           wbc(l,f,e,iu5)=facew(l,f,e,iu5)-0.5/facew(l,f,e,iu1)*
-!    >     (facew(l,f,e,iu2)**2+facew(l,f,e,iu3)**2+facew(l,f,e,iu4)**2)
+!           wbc(l,f,e,ju5)=facew(l,f,e,ju5)-0.5/facew(l,f,e,ju1)*
+!    >     (facew(l,f,e,ju2)**2+facew(l,f,e,ju3)**2+facew(l,f,e,ju4)**2)
 !          METHOD "A"
-               wbc(l,f,e,iu5)=facew(l,f,e,iu5)
+               wbc(l,f,e,ju5)=facew(l,f,e,ju5)
             endif
 ! JH111516 INVISCID HARDCODING ADIABATIC WALL. DO SMARTER SOON
 !-------------------------------------------------------------
@@ -89,86 +88,85 @@ C> @file wall_bc.f Dirichlet states for wall boundary conditions
       return
       end
 
-      subroutine wallbc_inviscid(nstate,f,e,facew,wbc)
-      INCLUDE 'SIZE'
-      INCLUDE 'INPUT'
-      include 'CMTBCDATA'
+      subroutine wallbc_inviscid(f,e,wminus,wplus,uminus,uplus,nvar)
+      include 'SIZE'
+      include 'CMTDATA' ! for toteq via CMTSIZE
 
-      integer nstate,f,e
-      real    facew(lx1*lz1,2*ldim,nelt,nstate)
-      real    wbc(lx1*lz1,2*ldim,nelt,nstate) 
+      integer nvar,f,e
+      real wminus(nvar,lx1*lz1),wplus(nvar,lx1*lz1),
+     >     uminus(toteq,lx1*lz1),uplus(toteq,lx1*lz1)
 
 ! JH102016
 ! rind state for inviscid fluxes is different from viscous fluxes
-      call reflect_rind(nstate,f,e,facew,wbc)
+      call reflect_rind(f,e,wminus,wplus,uminus,uplus,nvar)
 
       return
       end
 
-      subroutine reflect_rind(nvar,f,e,facew,wbc)
+      subroutine reflect_rind(f,e,wm,wp,um,up,nvar)
       include 'SIZE'
-      include 'CMTBCDATA'
+      include 'TOTAL'
       include 'CMTDATA'
-      include 'GEOM'
-      include 'INPUT'
-      include 'PARALLEL'
-      include 'DG'
-      include 'MASS'
-      include 'TSTEP'
       integer  f,e
-! JH091614 facew now has intent(inout)...
-! JH031315 not anymore. nobody changes qminus here. that's dumb
-      real facew(lx1*lz1,2*ldim,nelt,nvar)
-      real wbc(lx1*lz1,2*ldim,nelt,nvar)
-      integer i, nxz, fdim
+      real wm(nvar,lx1*lz1),wp(nvar,lx1*lz1),
+     >     um(toteq,lx1*lz1),up(toteq,lx1*lz1)
+      integer i, nxz, fdim, eq
       real nx,ny,nz,rl,ul,vl,wl,pl,fs
-      parameter (lfd1=lxd*lzd,lfc1=lx1*lz1)
 
       nxz=lx1*lz1
-      nxzd=lxd*lzd
-      fdim=ldim-1
-      ieg=lglel(e)
       ifield=1
 
-! I know this says slipwall, but to the inviscid terms all walls are
-! slip. or something.
       call facind(i0,i1,j0,j1,k0,k1,lx1,ly1,lz1,f)    
-      do l=1,nxz
+      l=0
+      do iz=k0,k1
+      do iy=j0,j1
+      do ix=i0,i1
+         l=l+1
+         do eq=1,toteq
+            um(eq,l)=u(ix,iy,iz,eq,e)
+         enddo
+         wm(irho,l)=vtrans(ix,iy,iz,e,jrho)
+         wm(iux,l)=vx(ix,iy,iz,e)
+         wm(iuy,l)=vy(ix,iy,iz,e)
+         wm(iuz,l)=vz(ix,iy,iz,e)
+         wm(isnd,l)=csound(ix,iy,iz,e)
+         wm(ipr,l)=pr(ix,iy,iz,e)
+         wm(iph,l)=phig(ix,iy,iz,e)
+         wm(ithm,l)=t(ix,iy,iz,e,1)
          nx = unx(l,1,f,e)
          ny = uny(l,1,f,e)
          nz = unz(l,1,f,e)
-         rl = facew(l,f,e,irho)
+         rl = wm(irho,l)
          rr = rl
-         ul = facew(l,f,e,iux)
-         vl = facew(l,f,e,iuy)
-         wl = facew(l,f,e,iuz)
-         fs = 0.0 ! no moving grid for awhile, and it will not look anything
-                  ! like RocFlu
+         ul = wm(iux,l)
+         vl = wm(iuy,l)
+         wl = wm(iuz,l)
+         phi= wm(iph,l)
+!        fs = 0.0 ! no moving grid for awhile, and it will not look anything
+!                 ! like RocFlu
 
 ! JH111516 Mirror a la' Dolejsi & Feistauer (2015) section 8.3.1.2
 ! JH021717 This is for inviscid fluxes, which are produced by the Riemann
-!          solver. Presently, this is AUSM, which acts on primitive variables
-!          as-coded. Still, it always makes sense to form UBC, so we do so
-!          here even though it is different for viscous BC
+!          solver.
          udotn = ul*nx+vl*ny+wl*nz
          ur = ul-2.0*udotn*nx
          vr = vl-2.0*udotn*ny
          wr = wl-2.0*udotn*nz
-         wbc(l,f,e,irho)= rr
-         wbc(l,f,e,iux) = ur
-         wbc(l,f,e,iuy) = vr
-         wbc(l,f,e,iuz) = wr
-         wbc(l,f,e,ipr) = facew(l,f,e,ipr)
-         wbc(l,f,e,ithm)= facew(l,f,e,ithm)
-         wbc(l,f,e,isnd)= facew(l,f,e,isnd)
-         wbc(l,f,e,iph) = facew(l,f,e,iph)
-         wbc(l,f,e,icvf)= facew(l,f,e,icvf)
-         wbc(l,f,e,icpf)= facew(l,f,e,icpf)
-         wbc(l,f,e,iu1)= facew(l,f,e,iu1)
-         wbc(l,f,e,iu2)= rr*ur
-         wbc(l,f,e,iu3)= rr*vr
-         wbc(l,f,e,iu4)= rr*wr
-         wbc(l,f,e,iu5)= facew(l,f,e,iu5)
+         wp(irho,l)=rr
+         wp(iux,l) = ur
+         wp(iuy,l) = vr
+         wp(iuz,l) = wr
+         wp(ipr,l) = wm(ipr,l)
+         wp(ithm,l)= wm(ithm,l)
+         wp(isnd,l)= wm(isnd,l)
+         wp(iph,l) = wm(iph,l)
+         up(1,l)= um(1,l)
+         up(2,l)= phi*rr*ur
+         up(3,l)= phi*rr*vr
+         up(4,l)= phi*rr*wr
+         up(5,l)= um(5,l)
+      enddo
+      enddo
       enddo
 
       return
@@ -223,16 +221,16 @@ c                                     ! ux,uy,uz someday
          nx = unx(l,1,f,e)
          ny = uny(l,1,f,e)
          nz = unz(l,1,f,e)
-         rl = facew(l,f,e,irho)
-         ul = facew(l,f,e,iux)
-         vl = facew(l,f,e,iuy)
-         wl = facew(l,f,e,iuz)
-         plc(l)= facew(l,f,e,ipr)
+         rl = facew(l,f,e,jrho)
+         ul = facew(l,f,e,jux)
+         vl = facew(l,f,e,juy)
+         wl = facew(l,f,e,juz)
+         plc(l)= facew(l,f,e,jpr)
          fs = 0.0 ! no moving grid for awhile, and it will not look anything
                   ! like RocFlu
          call RFLU_SetRindStateSlipWallPerf(cp,molarmass,nx,ny,nz,
      >                                      rl,ul,vl,wl,fs,plc(l))
-         wbc(l,f,e,irho)=rl
+         wbc(l,f,e,jrho)=rl
 
 !-----------------------------------------------------------------
 ! JH111516 INVISCID HARDCODING SLIP WALL. DO THIS SMARTER SOON
@@ -242,27 +240,27 @@ c                                     ! ux,uy,uz someday
          ur=ul-2.0*udotn*nx
          vr=vl-2.0*udotn*ny
          wr=wl-2.0*udotn*nz
-         wbc(l,f,e,iux)=ur
-         wbc(l,f,e,iuy)=vr
-         wbc(l,f,e,iuz)=wr
+         wbc(l,f,e,jux)=ur
+         wbc(l,f,e,juy)=vr
+         wbc(l,f,e,juz)=wr
 ! JH111516 SHOULD BE SET TO WALL SPEED i.e. 0 FOR NO-SLIP WALLS!!!
 !-----------------------------------------------------------------
-         wbc(l,f,e,ipr)=plc(l)! from RFLU_SetRindStateSlipWallPerf
-         wbc(l,f,e,iph)=phi
-         wbc(l,f,e,iu1)=facew(l,f,e,iu1)
-         wbc(l,f,e,iu2)=wbc(l,f,e,iu1)*ur
-         wbc(l,f,e,iu3)=wbc(l,f,e,iu1)*vr
-         wbc(l,f,e,iu4)=wbc(l,f,e,iu1)*wr
+         wbc(l,f,e,jpr)=plc(l)! from RFLU_SetRindStateSlipWallPerf
+         wbc(l,f,e,jph)=phi
+         wbc(l,f,e,ju1)=facew(l,f,e,ju1)
+         wbc(l,f,e,ju2)=wbc(l,f,e,ju1)*ur
+         wbc(l,f,e,ju3)=wbc(l,f,e,ju1)*vr
+         wbc(l,f,e,ju4)=wbc(l,f,e,ju1)*wr
 !-------------------------------------------------------------
 ! JH111516 INVISCID HARDCODING ADIABATIC WALL. DO SMARTER SOON
-         wbc(l,f,e,iu5)=facew(l,f,e,iu5)
+         wbc(l,f,e,ju5)=facew(l,f,e,ju5)
 ! JH111516 INVISCID HARDCODING ADIABATIC WALL. DO SMARTER SOON
 !-------------------------------------------------------------
 ! need a different place to set dirichlet BC for viscous fluxes
-!           wbc(l,f,e,iux)=ux ! better b
-!           wbc(l,f,e,iuy)=uy
-!           wbc(l,f,e,iuz)=uz
-!        if (cbc(f,e,ifield) .eq. 'W  ') wbc(l,f,e,ithm)=temp
+!           wbc(l,f,e,jux)=ux ! better b
+!           wbc(l,f,e,juy)=uy
+!           wbc(l,f,e,juz)=uz
+!        if (cbc(f,e,ifield) .eq. 'W  ') wbc(l,f,e,jthm)=temp
          plc(l)=plc(l)*phi
       enddo
       enddo
@@ -276,7 +274,7 @@ c                                     ! ux,uy,uz someday
          call map_faced(nzf,unz(1,1,f,e),lx1,lxd,fdim,0)
          call map_faced(plf,plc,lx1,lxd,fdim,0)
 
-         call invcol3(jaco_c,area(1,1,f,e),wghtc,nxz)
+         call invcol3(jaco_c,area(1,1,f,e),w2m1,nxz)
          call map_faced(jaco_f,jaco_c,lx1,lxd,fdim,0)
          call col2(jaco_f,wghtf,nxzd)
       else
@@ -288,7 +286,7 @@ c                                     ! ux,uy,uz someday
          call copy(jaco_f,area(1,1,f,e),nxz)
       endif
       call rzero(dumminus,toteq*nxzd)
-      call map_faced(dumminus(1,1),facew(1,f,e,iu1),lx1,lxd,fdim,0)
+      call map_faced(dumminus(1,1),facew(1,f,e,ju1),lx1,lxd,fdim,0)
       call rzero(fs2,nxzd)
 ! START BY GETTING RID OF THESE TRIVIAL CENTRAL CALLS AND CENTRAL ALTOGETHER
       call CentralInviscid_FluxFunction(nxzd,nxf,nyf,nzf,fs2,dumminus,

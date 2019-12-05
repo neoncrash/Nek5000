@@ -10,10 +10,6 @@ C> and store it for one element. Store faces of \f$\mathbf{H}^d\f$ for IGU.
       include  'DG'
       include  'INPUT'
 
-      integer lfq,heresize,hdsize
-      parameter (lfq=lx1*lz1*2*ldim*lelt,
-     >                   heresize=nqq*3*lfq,! guarantees transpose of Q+ fits
-     >                   hdsize=toteq*3*lfq) ! might not need ldim
       common /CMTSURFLX/ fatface(heresize),graduf(hdsize)
       real fatface,graduf
 
@@ -35,7 +31,10 @@ C> and store it for one element. Store faces of \f$\mathbf{H}^d\f$ for IGU.
 
       call agradu(diffh,gradu,e,eq)
 
-      call diffh2graduf(e,eq,graduf) ! on faces for QQ^T and igu_cmt
+! FIND OUT IF YOU NEED TO COMPUTE {{Hd.n}}
+!     call diffh2gradu(e,eq,graduf)
+! OR IF YOU NEED TO COMPUTE {{Hd}}.n
+      call diffh2face(e,eq,graduf)  ! on faces {{Hd}} after element loop
 
 ! volume integral involving "DG-ish" stiffness operator K
       call half_iku_cmt(res1(1,1,1,e,eq),diffh,e)
@@ -170,98 +169,399 @@ C> @}
 C> \ingroup convhvol
 C> @{
 C> Convective volume terms formed and differentiated^T here
-      subroutine convective_cmt(e,eq)
+      subroutine convective_cmt(e)
 ! JH081916 convective flux divergence integrated in weak form and
 !          placed in res1.
+! JH052418 convective flux divergence integrated in strong/ultraweak form and
+!          placed in res1.
+! JH060518 interchanged with equation loop (now inside here!)
       include 'SIZE'
       include 'CMTDATA'
+      include 'GEOM'
       integer e,eq
 
-      n=3*lxd*lyd*lzd
+      n=3*lx1*ly1*lz1*toteq
 
       call rzero(convh,n)
-      if (lxd.gt.lx1) then
-         call evaluate_dealiased_conv_h(e,eq)
-         call copy(totalh,convh,n)
-         call flux_div_integral_dealiased(e,eq)
-      else
-         call evaluate_aliased_conv_h(e,eq)
-         call copy(totalh,convh,n)
-         call flux_div_integral_aliased(e,eq)
-      endif
+      call evaluate_aliased_conv_h(e)
+      do eq=1,toteq
+      call contravariant_flux(totalh(1,1,eq),convh(1,1,eq),rx(1,1,e),1)
+      enddo
+
+!     call fluxdiv_2point_scr(res1,totalh,e,rx(1,1,e))
+!     call fluxdiv_2point_noscr(res1,totalh,e,rx(1,1,e))
+! two-point, KEP/EC
+      call fluxdiv_2point_noscr(res1,totalh,e,rx(1,1,e))
 
       return
       end
 C> @}
 
-C> \ingroup convhvol
-C> @{
-C> Convective pointwise flux function \f$\mathbf{H}^c\f$ on fine grid.
-      subroutine evaluate_dealiased_conv_h(e,eq)
-! computed as products between primitive variables and conserved variables.
-! if you want to write rho u_i u_j as (rho u_i) (rho u_j) (rho^{-1}), this
-! is the place to do it
-      include  'SIZE'
-      include  'SOLN'
-      include  'DEALIAS'
-      include  'CMTDATA'
-      include  'INPUT'
-     
-      integer  e,eq
+      subroutine fluxdiv_2point_slow(res,e,ja)
+      include 'SIZE'
+      include 'DG'
+      include 'GEOM' ! diagnostic. conflicts with ja
+      include 'SOLN'
+      include 'CMTDATA'
+! JH062018 two-point energy-preserving/SBP flux divergence volume integral, slow and naive
+      integer e,eq
+      real res(lx1,ly1,lz1,lelt,toteq) ! CMTDATA lurks
+      real ja(lx1,ly1,lz1,ldim,ldim)   ! rst outermost
+! scratch element for extra variables (hardcoded) and conserved variables U
+! transposed to quantity-innermost. unvectorizable?
+      common /scrns/ zaux (nparm,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1),
+     >               zauxt(lx1*ly1*lz1,nparm),jat(3,3,lx1,ly1,lz1)
+      real zaux,ut,zauxt,jat
+      real flx(5)
 
-      parameter (ldd=lxd*lyd*lzd)
-      common /ctmp1/ ju1(ldd),ju2(ldd)!,ur(ldd),us(ldd),ud(ldd),tu(ldd)
-      real ju1,ju2
+      nxyz=lx1*ly1*lz1
+      call cmt_usrz(zaux,zauxt,ut,e,nparm)
 
-      n=lxd*lyd*lzd
-
-      if (eq .eq. 1) then ! convective flux of mass=rho u_j=U_{j+1}
-
-         do j=1,ldim
-            call intp_rstd(convh(1,j),u(1,1,1,eq+j,e),lx1,lxd,if3d,0)
+      call rzero(jat,9*lx1*ly1*lz1)
+      do j=1,ldim
+         do i=1,ldim
+            do iz=1,lz1
+            do iy=1,ly1
+            do ix=1,lx1
+               jat(i,j,ix,iy,iz)=ja(ix,iy,iz,i,j)
+            enddo
+            enddo
+            enddo
          enddo
+      enddo
 
-      else
-
-c To be consistent with momentum equation, for mass balance flux vector is 
-c computed by multiplying rho by u_j
-         call intp_rstd(ju1,phig(1,1,1,e),lx1,lxd,if3d,0)
-         call intp_rstd(ju2,pr(1,1,1,e),lx1,lxd,if3d,0)
-
-         if (eq .lt. 5) then ! self-advection of rho u_i by rho u_i u_j
-
-            call intp_rstd(convh(1,1),u(1,1,1,eq,e),lx1,lxd,if3d,0)
-            do j=2,ldim
-               call copy(convh(1,j),convh(1,1),n)
+      do iz=1,lz1
+      do iy=1,ly1
+      do ix=1,lx1
+! r-direction
+         do l=1,lx1
+            call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,l,iy,iz),
+     >                         zaux(1,ix,iy,iz),zaux(1,l,iy,iz),
+     >                         jat(1,1,ix,iy,iz),jat(1,1,l,iy,iz))
+            do eq=1,toteq
+               res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                   dstrong(ix,l)*flx(eq)
             enddo
-            call col2(convh(1,1),vxd(1,1,1,e),n)
-            call col2(convh(1,2),vyd(1,1,1,e),n)
-            if (if3d) call col2(convh(1,3),vzd(1,1,1,e),n)
-            call add2col2(convh(1,eq-1),ju1,ju2,n)
-
-         elseif (eq .eq. 5) then
-
-            call intp_rstd(convh(1,1),u(1,1,1,eq,e),lx1,lxd,if3d,0)
-            call add2col2(convh(1,1),ju1,ju2,n)
-            do j=2,ldim
-               call copy(convh(1,j),convh(1,1),n)
+         enddo
+! s-direction
+         do l=1,ly1
+            call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,ix,l,iz),
+     >                         zaux(1,ix,iy,iz),zaux(1,ix,l,iz),
+     >                         jat(1,2,ix,iy,iz),jat(1,2,ix,l,iz))
+            do eq=1,toteq
+               res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                   dstrong(iy,l)*flx(eq)
             enddo
-            call col2(convh(1,1),vxd(1,1,1,e),n)
-            call col2(convh(1,2),vyd(1,1,1,e),n)
-            call col2(convh(1,3),vzd(1,1,1,e),n)
+         enddo
+      enddo
+      enddo
+      enddo
 
-         else
-            if(nio.eq.0) write(6,*) 'eq=',eq,'really must be <= 5'
-            if(nio.eq.0) write(6,*) 'aborting in evaluate_conv_h'
-            call exitt
-         endif
-
+      if (lz1.gt.1) then
+      do iz=1,lz1
+      do iy=1,ly1
+      do ix=1,lx1
+! t-direction
+         do l=1,lz1
+            call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,ix,iy,l),
+     >                         zaux(1,ix,iy,iz),zaux(1,ix,iy,l),
+     >                         jat(1,3,ix,iy,iz),jat(1,3,ix,iy,l))
+            do eq=1,toteq
+               res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                   dstrong(iz,l)*flx(eq)
+            enddo
+         enddo
+      enddo
+      enddo
+      enddo
       endif
-     
+
       return
       end
 
-      subroutine evaluate_aliased_conv_h(e,eq)
+!-----------------------------------------------------------------------
+
+      subroutine fluxdiv_2point_scr(res,fcons,e,ja)
+      include 'SIZE'
+      include 'DG'
+      include 'SOLN'
+      include 'CMTDATA'
+! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
+!          in the contravariant frame, call fluxdiv_2point, and increment res
+!          for e^th element.
+!          Metric terms Ja probably shouldn't be an argument but whatever.
+!          cmt_usr2pt passes arguments to F# in the usr file
+      integer e,eq
+      real res(lx1,ly1,lz1,lelt,toteq) ! CMTDATA lurks
+      real ja(lx1,ly1,lz1,ldim,ldim)   ! rst outermost
+      real fcons(lx1,ly1,lz1,3,toteq)   ! consistent ``1-point'' flux
+! scratch element for extra variables (hardcoded) and conserved variables U
+! transposed to quantity-innermost. unvectorizable?
+      common /scrns/ zaux (nparm,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1),
+     >               zauxt(lx1*ly1*lz1,nparm),jat(3,3,lx1,ly1,lz1)
+     >              ,rhsscr(lx1,toteq)
+      real zaux,ut,zauxt,jat,rhsscr
+      real flx(5)
+
+      nxyz=lx1*ly1*lz1
+      call cmt_usrz(zaux,zauxt,ut,e,nparm)
+
+      call rzero(jat,9*lx1*ly1*lz1)
+      do j=1,ldim
+         do i=1,ldim
+            do iz=1,lz1
+            do iy=1,ly1
+            do ix=1,lx1
+               jat(i,j,ix,iy,iz)=ja(ix,iy,iz,i,j)
+            enddo
+            enddo
+            enddo
+         enddo
+      enddo
+
+! r-direction
+      do iz=1,lz1
+      do iy=1,ly1
+         call rzero(rhsscr,toteq*lx1)
+         do ix=1,lx1
+            do l=ix+1,lx1
+               call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,l,iy,iz),
+     >                            zaux(1,ix,iy,iz),zaux(1,l,iy,iz),
+     >                            jat(1,1,ix,iy,iz),jat(1,1,l,iy,iz))
+               do eq=1,toteq
+                  rhsscr(ix,eq)=rhsscr(ix,eq)+dstrong(ix,l)*flx(eq)
+                  rhsscr(l,eq)=rhsscr(l,eq)+dstrong(l,ix)*flx(eq)
+               enddo
+            enddo
+            do eq=1,toteq
+               rhsscr(ix,eq)=rhsscr(ix,eq)+
+     >                       dstrong(ix,ix)*fcons(ix,iy,iz,1,eq)
+            enddo
+         enddo
+         do eq=1,toteq
+            call add2(res(1,iy,iz,e,eq),rhsscr(1,eq),lx1)
+         enddo
+      enddo ! iy
+      enddo ! iz
+
+
+! consider repacking ut and zaux with iy in second place
+! diagnostic kg is consistent in r and s
+!            call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,ix,iy,iz),
+!     >                            zaux(1,ix,iy,iz),zaux(1,ix,iy,iz),
+!     >                            jat(1,2,ix,iy,iz),jat(1,2,ix,iy,iz))
+!               write(60+eq,'(5e15.7)')
+!     >xm1(ix,iy,iz,e),ym1(ix,iy,iz,e),flx(eq),fcons(ix,iy,iz,2,eq),
+!     >abs(flx(eq)-fcons(ix,iy,iz,2,eq))
+! diagnostic
+! s-direction
+      do iz=1,lz1
+      do ix=1,lx1
+         call rzero(rhsscr,toteq*ly1)
+         do iy=1,ly1
+            do l=iy+1,ly1
+               call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,ix,l,iz),
+     >                            zaux(1,ix,iy,iz),zaux(1,ix,l,iz),
+     >                            jat(1,2,ix,iy,iz),jat(1,2,ix,l,iz))
+               do eq=1,toteq
+                  rhsscr(iy,eq)=rhsscr(iy,eq)+dstrong(iy,l)*flx(eq)
+                  rhsscr(l,eq)=rhsscr(l,eq)+dstrong(l,iy)*flx(eq)
+               enddo
+            enddo
+            do eq=1,toteq
+               rhsscr(iy,eq)=rhsscr(iy,eq)+
+     >                       dstrong(iy,iy)*fcons(ix,iy,iz,2,eq)
+            enddo
+         enddo
+         do eq=1,toteq
+            do iy=1,ly1
+               res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                             rhsscr(iy,eq)
+            enddo
+         enddo
+      enddo ! ix
+      enddo ! iz
+
+      if (lz1.gt.1) then
+      write(6,*) 'duh sir t-direction'
+! consider repacking ut and zaux with iz in second place
+! t-direction
+      do iy=1,ly1
+      do ix=1,lx1
+         call rzero(rhsscr,toteq*lz1)
+         do iz=1,lz1
+            do l=iz+1,lz1
+               call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,ix,iy,l),
+     >                            zaux(1,ix,iy,iz),zaux(1,ix,iy,l),
+     >                            jat(1,3,ix,iy,iz),jat(1,3,ix,iy,l))
+               do eq=1,toteq
+                  rhsscr(iz,eq)=rhsscr(iz,eq)+dstrong(iz,l)*flx(eq)
+                  rhsscr(l,eq)=rhsscr(l,eq)+dstrong(l,iz)*flx(eq)
+               enddo
+            enddo
+            do eq=1,toteq
+               rhsscr(iz,eq)=rhsscr(iz,eq)+
+     >                       dstrong(iz,iz)*fcons(ix,iy,iz,3,eq)
+            enddo
+         enddo
+         do eq=1,toteq
+            do iz=1,lz1
+               res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                             rhsscr(iz,eq)
+            enddo
+         enddo
+      enddo ! ix
+      enddo ! iy
+      endif ! if3d
+
+      return
+      end
+
+!-----------------------------------------------------------------------
+
+      subroutine fluxdiv_2point_noscr(res,fcons,e,ja)
+      include 'SIZE'
+      include 'DG'
+      include 'SOLN'
+      include 'CMTDATA'
+! JH061118 Access 3D res array directly without regard to stride. compare
+!          performance to existing scr
+! JH060418 set up two-point energy-preserving/SBP flux divergence volume integral
+!          in the contravariant frame, call fluxdiv_2point, and increment res
+!          for e^th element.
+!          Metric terms Ja probably shouldn't be an argument but whatever.
+!          cmt_usr2pt passes arguments to F# in the usr file
+!          and FLUXO (github.com/project-fluxo/fluxo)
+      integer e,eq
+      real res(lx1,ly1,lz1,lelt,toteq) ! res1 lurks in CMTDATA
+      real ja(lx1,ly1,lz1,ldim,ldim)   ! rst outermost
+      real fcons(lx1,ly1,lz1,3,toteq)   ! consistent ``1-point'' flux
+! scratch element for extra variables (hardcoded) and conserved variables U
+! transposed to quantity-innermost. unvectorizable?
+      common /scrns/ zaux (nparm,lx1,ly1,lz1),ut(toteq,lx1,ly1,lz1),
+     >               zauxt(lx1*ly1*lz1,nparm),jat(3,3,lx1,ly1,lz1)
+     >              ,rhsscr(lx1,toteq)
+      real zaux,ut,zauxt,jat,rhsscr
+      real flx(5)
+
+      call cmt_usrz(zaux,zauxt,ut,e,nparm)
+
+      call rzero(jat,9*lx1*ly1*lz1)
+      do j=1,ldim
+         do i=1,ldim
+            do iz=1,lz1
+            do iy=1,ly1
+            do ix=1,lx1
+               jat(i,j,ix,iy,iz)=ja(ix,iy,iz,i,j)
+            enddo
+            enddo
+            enddo
+         enddo
+      enddo
+
+      do iz=1,lz1
+      do iy=1,ly1
+      do ix=1,lx1
+! r-direction
+         do l=ix+1,lx1
+            call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,l,iy,iz),
+     >                            zaux(1,ix,iy,iz),zaux(1,l,iy,iz),
+     >                            jat(1,1,ix,iy,iz),jat(1,1,l,iy,iz))
+            do eq=1,toteq
+            res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+dstrong(ix,l)*flx(eq)
+            res(l,iy,iz,e,eq)=res(l,iy,iz,e,eq)+dstrong(l,ix)*flx(eq)
+            enddo
+         enddo
+
+         do eq=1,toteq
+            res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                       dstrong(ix,ix)*fcons(ix,iy,iz,1,eq)
+         enddo
+
+! s-direction
+         do l=iy+1,ly1
+            call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,ix,l,iz),
+     >                            zaux(1,ix,iy,iz),zaux(1,ix,l,iz),
+     >                            jat(1,2,ix,iy,iz),jat(1,2,ix,l,iz))
+            do eq=1,toteq
+            res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+dstrong(iy,l)*flx(eq)
+            res(ix,l,iz,e,eq)=res(ix,l,iz,e,eq)+dstrong(l,iy)*flx(eq)
+            enddo
+         enddo
+         do eq=1,toteq
+            res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                       dstrong(iy,iy)*fcons(ix,iy,iz,2,eq)
+         enddo
+
+! t-direction
+         do l=iz+1,lz1
+            call cmt_usr2pt(flx,ut(1,ix,iy,iz),ut(1,ix,iy,l),
+     >                            zaux(1,ix,iy,iz),zaux(1,ix,iy,l),
+     >                            jat(1,3,ix,iy,iz),jat(1,3,ix,iy,l))
+            do eq=1,toteq
+            res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+dstrong(iz,l)*flx(eq)
+            res(ix,iy,l,e,eq)=res(ix,iy,l,e,eq)+dstrong(l,iz)*flx(eq)
+            enddo
+         enddo
+         do eq=1,toteq
+            res(ix,iy,iz,e,eq)=res(ix,iy,iz,e,eq)+
+     >                       dstrong(iz,iz)*fcons(ix,iy,iz,3,eq)
+         enddo
+
+      enddo ! ix
+      enddo ! iy
+      enddo ! iz
+
+      return
+      end
+
+      subroutine fluxdiv_strong_contra(e)
+! JH052818. Evaluate flux divergence of totalh (in contravariant basis)
+!           in strong/ultraweak form
+      include  'SIZE'
+      include  'INPUT'
+      include  'GEOM'
+      include  'MASS'
+      include  'CMTDATA'
+
+      integer  e,eq
+      parameter (ldd=lx1*ly1*lz1)
+      parameter (ldg=lx1**3,lwkd=2*ldg)
+      common /ctmp1/ ur(ldd),us(ldd),ut(ldd),ju(ldd),ud(ldd),tu(ldd)
+      real ju
+      common /dgradl/ d(ldg),dt(ldg),dg(ldg),dgt(ldg),jgl(ldg),jgt(ldg)
+     $             , wkd(lwkd)
+      real jgl,jgt
+      character*32 cname
+
+      nrstd=ldd
+      nxyz=lx1*ly1*lz1
+      call get_dgll_ptr(ip,lx1,lx1) ! fills dg, dgt
+      mxm1=lx1-1
+
+      do eq=1,toteq
+      call rzero(ud,nrstd)
+
+      if (if3d) then ! swapping d and dt should do the trick
+                     ! in local_grad#_t
+         call local_grad3_t(ud,totalh(1,1,eq),totalh(1,2,eq),
+     >                         totalh(1,3,eq),mxm1,
+     >                      1,dt(ip),d(ip),wkd)
+      else
+         call local_grad2_t(ud,totalh(1,1,eq),totalh(1,2,eq),mxm1,
+     >                      1,dt(ip),d(ip),wkd)
+      endif
+
+      call col2   (ud,bm1(1,1,1,e),nxyz)   ! contravariant rx does not
+      call invcol2(ud,jacm1(1,1,1,e),nxyz) ! have quadrature weights
+      call add2(res1(1,1,1,e,eq),ud,nxyz)
+      enddo
+
+      return
+      end
+
+      subroutine evaluate_aliased_conv_h(e)
+! JH082418 Unstable. not long for this world
 ! computed as products between primitive variables and conserved variables.
 ! if you want to write rho u_i u_j as (rho u_i) (rho u_j) (rho^{-1}), this
 ! is the place to do it
@@ -271,43 +571,39 @@ c computed by multiplying rho by u_j
       include  'CMTDATA'
       include  'INPUT'
 
-      parameter (ldd=lxd*lyd*lzd)
-      common /ctmp1/ ju1(ldd),ju2(ldd)!,ur(ldd),us(ldd),ud(ldd),tu(ldd)
-      real ju1,ju2
+      parameter (ldd=lx1*ly1*lz1)
+      common /ctmp1/ ju(ldd),jv(ldd)!,ur(ldd),us(ldd),ud(ldd),tu(ldd)
+      real ju,jv
       integer  e,eq
 
-      n=lxd*lyd*lzd
+      n=lx1*ly1*lz1
 
-      call copy(ju1,phig(1,1,1,e),n)
-      call copy(ju2,pr(1,1,1,e),n)
+      call copy(ju,phig(1,1,1,e),n)
+      call copy(jv,pr(1,1,1,e),n)
+      do j=1,ldim
+         call copy(convh(1,j,1),u(1,1,1,j+1,e),n)
+      enddo
 
-      if (eq .lt. 5) then ! self-advection of rho u_i by rho u_i u_j
-
-         call copy(convh(1,1),u(1,1,1,eq,e),n)
+      do eq=2,ldim+1
+         call copy(convh(1,1,eq),u(1,1,1,eq,e),n)
          do j=2,ldim
-            call copy(convh(1,j),convh(1,1),n)
+            call copy(convh(1,j,eq),convh(1,1,eq),n)
          enddo
-         call col2(convh(1,1),vxd(1,1,1,e),n)
-         call col2(convh(1,2),vyd(1,1,1,e),n)
-         if (if3d) call col2(convh(1,3),vzd(1,1,1,e),n)
-         if(eq. gt. 1) call add2col2(convh(1,eq-1),ju1,ju2,n)
+         call col2(convh(1,1,eq),vx(1,1,1,e),n)
+         call col2(convh(1,2,eq),vy(1,1,1,e),n)
+         if (if3d) call col2(convh(1,3,eq),vz(1,1,1,e),n)
+         call add2col2(convh(1,eq-1,eq),ju,jv,n)
+      enddo
 
-      elseif (eq .eq. 5) then
-
-         call copy(convh(1,1),u(1,1,1,eq,e),n)
-         call add2col2(convh(1,1),ju1,ju2,n)
-         do j=2,ldim
-            call copy(convh(1,j),convh(1,1),n)
-         enddo
-         call col2(convh(1,1),vxd(1,1,1,e),n)
-         call col2(convh(1,2),vyd(1,1,1,e),n)
-         call col2(convh(1,3),vzd(1,1,1,e),n)
-
-      else
-         if(nio.eq.0) write(6,*) 'eq=',eq,'really must be <= 5'
-         if(nio.eq.0) write(6,*) 'aborting in evaluate_conv_h'
-         call exitt
-      endif
+      eq=toteq
+      call copy(convh(1,1,eq),u(1,1,1,eq,e),n)
+      call add2col2(convh(1,1,eq),ju,jv,n)
+      do j=2,ldim
+         call copy(convh(1,j,eq),convh(1,1,eq),n)
+      enddo
+      call col2(convh(1,1,eq),vx(1,1,1,e),n)
+      call col2(convh(1,2,eq),vy(1,1,1,e),n)
+      if (if3d) call col2(convh(1,3,eq),vz(1,1,1,e),n)
 
       return
       end
@@ -316,7 +612,12 @@ C> @}
 C> \ingroup convhvol
 C> @{
 C> \f$(\nabla v)\cdot \mathbf{H}^c=\mathcal{I}^{\intercal}\mathbf{D}^{\intercal}\cdots\f$ for equation eq, element e
-      subroutine flux_div_integral_dealiased(e,eq)
+      subroutine fluxdiv_dealiased_weak_chain(e)
+! JH082418. Formerly flux_div_integral_dealiased. Keep this for simpler
+!           conservation laws on particularly simple meshes.
+!           totalh: correctly formed flux on the Gauss-Legendre (GL) points
+!           rx:     from set_delias_rx.
+!                   chain-rule nx1 metrics intp'ed to GL point x GL weights
       include  'SIZE'
       include  'INPUT'
       include  'GEOM'
@@ -324,7 +625,6 @@ C> \f$(\nabla v)\cdot \mathbf{H}^c=\mathcal{I}^{\intercal}\mathbf{D}^{\intercal}
       include  'CMTDATA'
 
       integer  e,eq
-      integer  dir
       parameter (ldd=lxd*lyd*lzd)
       parameter (ldg=lxd**3,lwkd=2*ldg)
       common /ctmp1/ ur(ldd),us(ldd),ut(ldd),ju(ldd),ud(ldd),tu(ldd)
@@ -338,6 +638,7 @@ C> \f$(\nabla v)\cdot \mathbf{H}^c=\mathcal{I}^{\intercal}\mathbf{D}^{\intercal}
       call get_dgl_ptr(ip,lxd,lxd) ! fills dg, dgt
       mdm1=lxd-1
 
+      do eq=1,toteq
       call rzero(ur,nrstd)
       call rzero(us,nrstd)
       call rzero(ut,nrstd)
@@ -347,16 +648,16 @@ C> \f$(\nabla v)\cdot \mathbf{H}^c=\mathcal{I}^{\intercal}\mathbf{D}^{\intercal}
       j0=0
       do j=1,ldim
          j0=j0+1
-         call add2col2(ur,totalh(1,j),rx(1,j0,e),nrstd)
+         call add2col2(ur,totalh(1,j,eq),rx(1,j0,e),nrstd)
       enddo
       do j=1,ldim
          j0=j0+1
-         call add2col2(us,totalh(1,j),rx(1,j0,e),nrstd)
+         call add2col2(us,totalh(1,j,eq),rx(1,j0,e),nrstd)
       enddo
       if (if3d) then
          do j=1,ldim
             j0=j0+1
-            call add2col2(ut,totalh(1,j),rx(1,j0,e),nrstd)
+            call add2col2(ut,totalh(1,j,eq),rx(1,j0,e),nrstd)
          enddo
          call local_grad3_t(ud,ur,us,ut,mdm1,1,dg(ip),dgt(ip),wkd)
       else
@@ -371,13 +672,19 @@ C> \f$(\nabla v)\cdot \mathbf{H}^c=\mathcal{I}^{\intercal}\mathbf{D}^{\intercal}
 !     call add2(res1(1,1,1,e,eq),tu,nxyz)
 ! weak?
       call sub2(res1(1,1,1,e,eq),tu,nxyz)
+      enddo ! toteq
 
       return
       end
 
 C> @}
 
-      subroutine flux_div_integral_aliased(e,eq)
+!-----------------------------------------------------------------------
+
+      subroutine fluxdiv_weak_chain(e)
+! JH082418. Formerly flux_div_integral_aliased. Keep this for...linear
+!           problems on Cartesian meshes? Not long for this world; scalar
+!           DG in nek5000 is probably 100 times better anyway
       include  'SIZE'
       include  'INPUT'
       include  'GEOM'
@@ -385,9 +692,8 @@ C> @}
       include  'CMTDATA'
 
       integer  e,eq
-      integer  dir
-      parameter (ldd=lxd*lyd*lzd)
-      parameter (ldg=lxd**3,lwkd=2*ldg)
+      parameter (ldd=lx1*ly1*lz1)
+      parameter (ldg=lx1**3,lwkd=2*ldg)
       common /ctmp1/ ur(ldd),us(ldd),ut(ldd),ju(ldd),ud(ldd),tu(ldd)
       real ju
       common /dgradl/ d(ldg),dt(ldg),dg(ldg),dgt(ldg),jgl(ldg),jgt(ldg)
@@ -397,9 +703,10 @@ C> @}
 
       nrstd=ldd
       nxyz=lx1*ly1*lz1
-      call get_dgll_ptr(ip,lxd,lxd) ! fills dg, dgt
-      mdm1=lxd-1
+      call get_dgll_ptr(ip,lx1,lx1) ! fills dg, dgt
+      mdm1=lx1-1
 
+      do eq=1,toteq
       call rzero(ur,nrstd)
       call rzero(us,nrstd)
       call rzero(ut,nrstd)
@@ -409,16 +716,16 @@ C> @}
       j0=0
       do j=1,ldim
          j0=j0+1
-         call add2col2(ur,totalh(1,j),rx(1,j0,e),nrstd)
+         call add2col2(ur,totalh(1,j,eq),rx(1,j0,e),nrstd)
       enddo
       do j=1,ldim
          j0=j0+1
-         call add2col2(us,totalh(1,j),rx(1,j0,e),nrstd)
+         call add2col2(us,totalh(1,j,eq),rx(1,j0,e),nrstd)
       enddo
       if (if3d) then
          do j=1,ldim
             j0=j0+1
-            call add2col2(ut,totalh(1,j),rx(1,j0,e),nrstd)
+            call add2col2(ut,totalh(1,j,eq),rx(1,j0,e),nrstd)
          enddo
          call local_grad3_t(ud,ur,us,ut,mdm1,1,d(ip),dt(ip),wkd)
       else
@@ -429,11 +736,42 @@ C> @}
 
 ! needs fleg or removal altogether. not good modularity
       call sub2(res1(1,1,1,e,eq),tu,nxyz)
+      enddo ! eq
 
       return
       end
 
 !-----------------------------------------------------------------------
+
+      subroutine contravariant_flux(frst,fxyz,ja,nel)
+      include 'SIZE'
+      integer e
+      real ja(nx1*ny1*nz1,ldim*ldim,nel)
+      real frst(nx1*ny1*nz1,ldim,nel)
+      real fxyz(nx1*ny1*nz1,ldim,nel)
+      parameter (l11=lx1*ly1*lz1)
+      common /ctmp1/ ftmp(l11,ldim)
+! JH082418 transform to reference element via contravariant metrics
+
+      nxyz=lx1*ly1*lz1
+      nxyz3=ldim*nxyz
+      do e=1,nel
+         call rzero(ftmp,nxyz3)
+         j0=0
+         do j=1,ldim    ! rst
+            do i=1,ldim ! xyz
+               j0=j0+1
+               call addcol3(ftmp(1,j),ja(1,j0,e),fxyz(1,i,e),nxyz)
+            enddo
+         enddo
+         call copy(frst(1,1,e),ftmp,nxyz3)
+      enddo
+
+      return
+      end
+
+!-----------------------------------------------------------------------
+
       subroutine compute_forcing(e,eq_num)
       include  'SIZE'
       include  'INPUT'
@@ -517,3 +855,4 @@ c    &                       +  U(i,j,k,4,e)*FFZ)/ U(i,j,k,1,e)
 
       return
       end 
+

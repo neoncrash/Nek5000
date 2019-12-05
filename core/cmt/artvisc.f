@@ -32,7 +32,7 @@
 ! usr file because it's EOS-dependent
       rgam=rgasref/(gmaref-1.0)
       do i=1,ntot
-         rho=max(vtrans(i,1,1,1,irho),ntol)
+         rho=max(vtrans(i,1,1,1,jrho),ntol)
          s(i,1,1)=rgam*rho*log(pr(i,1,1,1)/(rho**gmaref))
       enddo
 
@@ -44,8 +44,8 @@
 
       return
       end
-
 !-----------------------------------------------------------------------
+
 ! NEW VISC FORM
 
       subroutine semi_cook_viscosity
@@ -120,7 +120,7 @@
                     res2(ix,iy,iz,e,2) = 0
             else
                     res2(ix,iy,iz,e,2) =ABS(res2(ix,iy,iz,e,2)) 
-     >                                  *vtrans(ix,iy,iz,e,irho)
+     >                                  *vtrans(ix,iy,iz,e,jrho)
      >                                          *e_dist**2
             endif
          enddo
@@ -140,7 +140,7 @@
             enddo
 !            t(ix,iy,iz,e,6) = SQRT(ABS(res2(ix,iy,iz,e,1)))    
             res2(ix,iy,iz,e,1) = SQRT(ABS(res2(ix,iy,iz,e,1))) 
-     >                                  *vtrans(ix,iy,iz,e,irho)
+     >                                  *vtrans(ix,iy,iz,e,jrho)
      >                                          *e_dist**2
                 
          enddo
@@ -169,7 +169,7 @@
                enddo
 !               t(ix,iy,iz,e,7) = ABS(res2(ix,iy,iz,e,3)) !for debug
                res2(ix,iy,iz,e,3) = (ABS(res2(ix,iy,iz,e,3)) /
-     >              (t(ix,iy,iz,e,1))**2) * vtrans(ix,iy,iz,e,irho) 
+     >              (t(ix,iy,iz,e,1))**2) * vtrans(ix,iy,iz,e,jrho) 
      >                * (e_dist**3) * csound(ix,iy,iz,e)**3 
             enddo
             enddo
@@ -221,9 +221,10 @@
       call cadd2(scrent,tlag,savg,ntot)
       maxdiff =     glamax(scrent,ntot)
       if (maxdiff.le.0.0) then
-         write(6,*) 'zero maxdiff usually means NAN$'
-!        write(deathmessage,*) 'zero maxdiff usually means NAN$'
-!        call exittr(deathmessage,maxdiff,istep)
+         write(deathmessage,*) 'zero maxdiff usually means NAN$'
+         call exittr(deathmessage,maxdiff,istep)
+!     else
+!        if (nio .eq. 0) write (6,*) 'max(s-<s>)=',maxdiff, meshh(1)
       endif
       call entropy_residual(tlag) ! fill res2
       call copy(res2(1,1,1,1,2),res2,ntot) ! raw residual in res2
@@ -237,63 +238,6 @@
 !     call evmsmooth(res2,t(1,1,1,1,3),.true.) ! And again.
       call dsavg(res2) ! you DEFINITELY don't want a min here
 
-
-      return
-      end
-
-!-----------------------------------------------------------------------
-
-      subroutine piecewiseAV(shock_detector)
-      include 'SIZE'
-      include 'TOTAL'
-      include 'CMTDATA'
-      integer e
-      character*132 deathmessage
-      common /scrvh/ avmask(lelt)
-      real avmask
-      external shock_detector
-
-      pi=4.0*atan(1.0)
-
-      nxyz=lx1*ly1*lz1
-      ntot=nxyz*nelt
-
-! toggle shock detector with AV application Lv, See & Ihme (2016) JCP 322
-
-      if (time4av) then
-         call shock_detector(avmask)
-
-! old nu_max
-         call wavevisc(t(1,1,1,1,3))
-! diagnostic
-!        if (stage.gt.0)then
-!        do e=1,nelt
-!!           do i=1,nxyz
-!              write(stage*100+nid,*)xm1(i,1,1,e),ym1(i,1,1,e),t(i,1,1,e,3)
-!           enddo
-!        enddo
-!        endif
-         do e=1,nelt
-            call cmult(t(1,1,1,e,3),avmask(e),nxyz)
-            if (avmask(e).ne.1.0) write(6,*) 'duh sir'
-         enddo
-
-      else
-         call rzero(t(1,1,1,1,3),ntot)
-!        call shock_detector(avmask)
-      endif
-
-! diagnostic
-!      if (stage.gt.0)then
-!      do e=1,nelt
-!         do i=1,nxyz
-!            write(stage*1000+nid,'(5e15.7)') xm1(i,1,1,e),ym1(i,1,1,e),
-!!     >        t(i,1,1,e,3),avmask(e),epsebdg(e)
-!         enddo
-!      enddo
-!      endif
-
-!     call max_to_trilin(t(1,1,1,1,3))
 
       return
       end
@@ -350,12 +294,12 @@ c-----------------------------------------------------------------------
       include 'CMTDATA'
       integer e
 
-      call rzero(totalh,3*lxd*lyd*lzd)
+      call rzero(totalh,3*lxd*lyd*lzd*toteq)
       n=lx1*ly1*lz1
 
-      call col3(totalh(1,1),vx(1,1,1,e),tlag(1,1,1,e,1,1),n)
-      call col3(totalh(1,2),vy(1,1,1,e),tlag(1,1,1,e,1,1),n)
-      if (if3d) call col3(totalh(1,3),vz(1,1,1,e),tlag(1,1,1,e,1,1),n)
+      call col3(totalh(1,1,1),vx(1,1,1,e),tlag(1,1,1,e,1,1),n)
+      call col3(totalh(1,2,1),vy(1,1,1,e),tlag(1,1,1,e,1,1),n)
+      if (if3d) call col3(totalh(1,3,1),vz(1,1,1,e),tlag(1,1,1,e,1,1),n)
 
       return
       end
@@ -387,31 +331,31 @@ c-----------------------------------------------------------------------
       call rzero(tu,nrstd)
 
       if (if3d) then
-         call local_grad3(ur,us,ut,totalh(1,1),mdm1,1,dxm1,dxtm1)
+         call local_grad3(ur,us,ut,totalh(1,1,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz
             ud(i) = jacmi(i,e)*(rxm1(i,1,1,e)*ur(i)
      $                        + sxm1(i,1,1,e)*us(i)
      $                        + txm1(i,1,1,e)*ut(i))
          enddo
-         call local_grad3(ur,us,ut,totalh(1,2),mdm1,1,dxm1,dxtm1)
+         call local_grad3(ur,us,ut,totalh(1,2,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz ! confirmed to have no effect in 1D
             ud(i)=ud(i)+jacmi(i,e)*(rym1(i,1,1,e)*ur(i)
      $                            + sym1(i,1,1,e)*us(i)
      $                            + tym1(i,1,1,e)*ut(i))
          enddo
-         call local_grad3(ur,us,ut,totalh(1,3),mdm1,1,dxm1,dxtm1)
+         call local_grad3(ur,us,ut,totalh(1,3,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz ! confirmed to have no effect in 1D
             ud(i)=ud(i)+jacmi(i,e)*(rzm1(i,1,1,e)*ur(i)
      $                            + szm1(i,1,1,e)*us(i)
      $                            + tzm1(i,1,1,e)*ut(i))
          enddo
       else
-         call local_grad2(ur,us,totalh(1,1),mdm1,1,dxm1,dxtm1)
+         call local_grad2(ur,us,totalh(1,1,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz
             ud(i) = jacmi(i,e)*(rxm1(i,1,1,e)*ur(i)
      $                        + sxm1(i,1,1,e)*us(i))
          enddo
-         call local_grad2(ur,us,totalh(1,2),mdm1,1,dxm1,dxtm1)
+         call local_grad2(ur,us,totalh(1,2,1),mdm1,1,dxm1,dxtm1)
          do i=1,nxyz
             ud(i)=ud(i)+jacmi(i,e)*(rym1(i,1,1,e)*ur(i)
      $                            + sym1(i,1,1,e)*us(i))
@@ -431,7 +375,6 @@ c-----------------------------------------------------------------------
       include 'TOTAL'
       include 'CMTDATA'
       include 'DG'
-      integer lfq,heresize,hdsize
       parameter (lxyz=lx1*ly1*lz1)
       real residual(lxyz,nelt)
       integer e,f
@@ -594,14 +537,13 @@ c-----------------------------------------------------------------------
      >      sqrt(vx(i,1,1,e)**2+vy(i,1,1,e)**2+vz(i,1,1,e)**2)
          enddo
          maxeig=vlamax(wavespeed,nxyz)
-! Zingan (2015) only. not long for this world
-!        rhomax(e)=vlamax(vtrans(1,1,1,e,irho),nxyz)
+         rhomax(e)=vlamax(vtrans(1,1,1,e,jrho),nxyz)
          do i=1,nxyz
             numax(i,e)=c_max*maxeig*meshh(e)
          enddo
       enddo
 
-      call max_to_trilin(t(1,1,1,1,3))
+      call max_to_trilin(numax)
 
       return
       end
@@ -615,6 +557,8 @@ c-----------------------------------------------------------------------
       include 'TOTAL'
       real field(lx1,ly1,lz1,nelt)
       integer e
+
+      character*32 fname ! diagnostic
 
       nxyz=lx1*ly1*lz1
 
@@ -651,67 +595,6 @@ c-----------------------------------------------------------------------
      >                          c4*deltax*deltay+c5*deltay*deltaz+
      >                       c6*deltaz*deltax+c7*deltay*deltaz*deltax
          enddo
-      enddo
-
-      return
-      end
-
-!-----------------------------------------------------------------------
-
-      subroutine perssonperaire(shkdet,var,shtmp)
-! Peraire & Persson (2006) Eq. 7
-      include 'SIZE'
-      include 'TOTAL'
-      include 'CMTDATA'
-      parameter (lxyz=lx1*ly1*lz1)
-      common /scrns/ fvar (lxyz,lelt)
-!    $ ,             ytm1 (lx1,ly1,lz1,lelv)
-      real shkdet(lxyz,nelt),var(lxyz,*),shtmp(lxyz,*)
-      integer e
-! this whole common block is atrocious
-      common /CMTFILTERS/  intv(lx1,lx1),intt(lx1,lx1)
-     $                  ,  intvd(lxd,lxd),inttd(lxd,lxd)
-     $                  ,  wk1(lx1,lx1,lz1),wk2(lx1,lx1,lz1)
-     $                  ,  wkd1(lxd,lxd,lzd),wkd2(lxd,lxd,lzd)
-      real                 intv, intt, intvd, inttd
-      real kappa
-      integer icalld
-      save    icalld
-      data    icalld/0/
-
-      if (icalld.eq.0) then
-         ncut=-110
-         icalld=1
-         call userfilt(intv,zgm1,lx1,nio)
-      endif
-
-      n=lx1*ly1*lz1
-      ntot=n*nelt
-
-! JH082418 Hardcoded threshold
-      cpp=0.001
-
-      call copy(fvar,var,ntot)
-      call filterq(fvar,intv,lx1,lz1,wk1,wk2,intt,if3d,dmax)
-
-      do e=1,nelt
-         call sub3(shkdet(1,e),var(1,e),fvar(1,e),n) ! store u-u^ in shkdet
-         shock_or_not=vlsc3(shkdet(1,e),shkdet(1,e),bm1(1,1,1,e),n)
-         denom=vlsc3(var(1,e),var(1,e),bm1(1,1,1,e),n)
-         if (denom .gt. 0.0) then ! mask this somehow. ifs are bad
-            shock_or_not=(shock_or_not/denom)*(lx1-1)**4
-!           shock_or_not=log10(shock_or_not)
-            if (shock_or_not .gt. cpp) then
-!              call cfill(shkdet(1,e),shock_or_not,n)
-               call rone(shkdet(1,e),n)
-            else
-               call rzero(shkdet(1,e),n)
-            endif
-         else
-            write(6,*) 'nid,iel=',nid,e
-            write(6,*) 'variables that change sign are bad for shox'
-            call exitt
-         endif
       enddo
 
       return

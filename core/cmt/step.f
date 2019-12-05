@@ -45,13 +45,13 @@ C> @file step.f time stepping and mesh spacing routines
       if (ctarg .lt.0.5) then
          call compute_cfl (umax,utmp,vtmp,wtmp,1.0)
          dt_cfl=ctarg/umax
-         call glsqinvcolminR(dt1,vdiff(1,1,1,1,imu ),gridh,ntot,ctarg,
-     >                          vtrans(1,1,1,1,irho))
-         call glsqinvcolminK(dt2,vdiff(1,1,1,1,iknd),gridh,ntot,ctarg,
-     >                           T(1,1,1,1,1),vtrans(1,1,1,1,irho))
-         call glsqinvcolmin(dt3,vdiff(1,1,1,1,inus),gridh,ntot,ctarg)
-         call glsqinvcolminR(dt4,vdiff(1,1,1,1,ilam),gridh,ntot,ctarg,
-     >                          vtrans(1,1,1,1,irho))
+         call glsqinvcolminR(dt1,vdiff(1,1,1,1,jmu ),gridh,ntot,ctarg,
+     >                          vtrans(1,1,1,1,jrho))
+         call glsqinvcolminK(dt2,vdiff(1,1,1,1,jknd),gridh,ntot,ctarg,
+     >                           T(1,1,1,1,1),vtrans(1,1,1,1,jrho))
+         call glsqinvcolmin(dt3,vdiff(1,1,1,1,jnus),gridh,ntot,ctarg)
+         call glsqinvcolminR(dt4,vdiff(1,1,1,1,jlam),gridh,ntot,ctarg,
+     >                          vtrans(1,1,1,1,jrho))
          dt=min(dt_cfl,dt1,dt2,dt3,dt4) !maybe make a dt4?
          if (dt .gt. 10.0) then
             if (nio.eq.0) write(6,*) 'dt huge. crashing ',istep,stage,
@@ -104,13 +104,13 @@ C> @file step.f time stepping and mesh spacing routines
 ! diffusion number based on viscosity.
 
 !     call mindr(mdr,diffno2)
-      call glinvcol2maxR(diffno1,vdiff(1,1,1,1,imu), gridh,ntot,dt,
-     >                          vtrans(1,1,1,1,irho))
-      call glinvcol2maxK(diffno2,vdiff(1,1,1,1,iknd),gridh,ntot,dt,
-     >                          T(1,1,1,1,1),vtrans(1,1,1,1,irho))
-      call glinvcol2max(diffno3,vdiff(1,1,1,1,inus),gridh,ntot,dt)
-      call glinvcol2maxR(diffno4,vdiff(1,1,1,1,ilam),gridh,ntot,dt,
-     >                          vtrans(1,1,1,1,irho))
+      call glinvcol2maxR(diffno1,vdiff(1,1,1,1,jmu), gridh,ntot,dt,
+     >                          vtrans(1,1,1,1,jrho))
+      call glinvcol2maxK(diffno2,vdiff(1,1,1,1,jknd),gridh,ntot,dt,
+     >                          T(1,1,1,1,1),vtrans(1,1,1,1,jrho))
+      call glinvcol2max(diffno3,vdiff(1,1,1,1,jnus),gridh,ntot,dt)
+      call glinvcol2maxR(diffno4,vdiff(1,1,1,1,jlam),gridh,ntot,dt,
+     >                          vtrans(1,1,1,1,jrho))
 !added for lambda tracking also in format statment below 
 !     diffno=max(diffno1,diffno2,diffno3)
       time_cmt= time_cmt+dt
@@ -126,7 +126,7 @@ C> @file step.f time stepping and mesh spacing routines
 
       subroutine mindr(mdr,diffno)
 c
-c     Find minimum distance between grid points
+c     Find minjmum distance between grid points
 c     and multiply it by viscosity to get diffusion number
 c     Probably need to do this for energy equation too...
 ! JH091616 migrate to getdr 3d ASAP. Again, follow compute_cfl
@@ -170,7 +170,7 @@ c
             dr1 = dist2(x0,y0,x4,y4)
             if(dr1.lt.mdr) mdr=dr1
             if(dr1.lt.dtmp) dtmp=dr1
-            diffno=max(diffno,dt*vdiff(ix,iy,1,e,imu)/dtmp/dtmp)
+            diffno=max(diffno,dt*vdiff(ix,iy,1,e,jmu)/dtmp/dtmp)
           enddo
           enddo
         enddo
@@ -387,7 +387,7 @@ c
 
 
       subroutine compute_mesh_h(h,x,y,z)
-! Zingan's DGFEM formula: h=minimum distance between vertices divided by
+! Zingan's DGFEM formula: h=minjmum distance between vertices divided by
 !                         polynomial order
       include 'SIZE'
       include 'INPUT'

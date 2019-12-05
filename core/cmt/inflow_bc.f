@@ -1,26 +1,25 @@
 C> @file Dirichlet states for inflow boundary conditions
-      subroutine inflow(nvar,f,e,facew,wbc)
+C> wrapper for other BC routines. Just one for now. More to come.
+      subroutine inflow(f,e,wminus,wplus,uminus,uplus,nvar)
       INCLUDE 'SIZE'
+      INCLUDE 'CMTSIZE'
       INCLUDE 'INPUT'
       INCLUDE 'CMTBCDATA'
       integer nvar,f,e
-      real facew(lx1,lz1,2*ldim,nelt,nvar)
-      real wbc(lx1,lz1,2*ldim,nelt,nvar)
+      real wminus(nvar,lx1*lz1),wplus(nvar,lx1*lz1),
+     >     uminus(toteq,lx1*lz1),uplus(toteq,lx1*lz1)
 
-! JH021717 compare
-!     call inflow_rflu(nvar,f,e,facew,wbc)
-      call inflow_inviscid(nvar,f,e,facew,wbc)
+      call inflow_df(f,e,wminus,wplus,uminus,uplus,nvar)
 
       return
       end
 
 !--------------------------------------------------------------------
 
-      subroutine inflow_rflu(nvar,f,e,facew,wbc)
-!--------------------------------------------------------------------
-! JH080118 CP IS ENERGY NOW
-! DOESN'T WORK!!!
-!--------------------------------------------------------------------
+      subroutine inflow_rflu(nvar,f,e,wminus,wbc)
+! JH112718 Poorly thought-out routine to get rind state from RocFlu's
+!          implementation of Holmes' inflow conditions. Backburnered
+!          for awhile
       include 'SIZE'
       include 'INPUT'
       include 'NEKUSE'
@@ -32,8 +31,8 @@ C> @file Dirichlet states for inflow boundary conditions
 
       integer f,e,fdim ! intent(in)
       integer i,bcOptType
-      real facew(lx1*lz1,2*ldim,nelt,nvar) ! intent(in)
-      real wbc  (lx1*lz1,2*ldim,nelt,nvar)   ! intent(out)
+      real wminus(lx1*lz1,2*ldim,nelt,nvar) ! intent(in)
+      real wbc(lx1*lz1,nvar) ! intent(in)
       real snx,sny,snz,rhou,rhov,rhow,pl,rhob,rhoub,rhovb,rhowb
      >     ,rhoeb, mach
 
@@ -57,11 +56,16 @@ c                                     !     ux,uy,uz
          snx  = unx(l,1,f,e)
          sny  = uny(l,1,f,e)
 
-         rho  = facew(l,f,e,iu1)/facew(l,f,e,iph)
-         rhou = facew(l,f,e,iu2)/facew(l,f,e,iph)
-         rhov = facew(l,f,e,iu3)/facew(l,f,e,iph)
-         rhow = facew(l,f,e,iu4)/facew(l,f,e,iph)
-         rhoe = facew(l,f,e,iu5)/facew(l,f,e,iph)
+!        rho  = facew(l,f,e,ju1)/facew(l,f,e,jph)
+!        rhou = facew(l,f,e,ju2)/facew(l,f,e,jph)
+!        rhov = facew(l,f,e,ju3)/facew(l,f,e,jph)
+!        rhow = facew(l,f,e,ju4)/facew(l,f,e,jph)
+!        rhoe = facew(l,f,e,ju5)/facew(l,f,e,jph)
+         rho  = u(ix,iy,iz,1,e)/phig(ix,iy,iz,e)
+         rhou = u(ix,iy,iz,2,e)/phig(ix,iy,iz,e)
+         rhov = u(ix,iy,iz,3,e)/phig(ix,iy,iz,e)
+         rhow = u(ix,iy,iz,4,e)/phig(ix,iy,iz,e)
+         rhoe = u(ix,iy,iz,5,e)/phig(ix,iy,iz,e)
 
          if (if3d) then
             mach = sqrt(ux**2+uy**2+uz**2)/asnd
@@ -77,20 +81,20 @@ c                                     !     ux,uy,uz
      >                       ,molarmass,rho,rhou,rhov,rhow,rhob,rhoub
      >                       ,rhovb,rhowb,rhoeb,pres,asnd,temp)
          
-         wbc(l,f,e,irho) = rhob
-         wbc(l,f,e,iux)  = ux
-         wbc(l,f,e,iuy)  = uy
-         wbc(l,f,e,iuz)  = uz
-         wbc(l,f,e,isnd) = asnd ! overwritten by Bcond
-         wbc(l,f,e,ipr)  = pres ! overwritten by Bcond
-         wbc(l,f,e,ithm) = temp ! overwritten by Bcond
-         wbc(l,f,e,icpf) = rho*cp
-         wbc(l,f,e,icvf) = rho*cv
-         wbc(l,f,e,iu1)  = rhob*phi
-         wbc(l,f,e,iu2)  = rhoub*phi
-         wbc(l,f,e,iu3)  = rhovb*phi
-         wbc(l,f,e,iu4)  = rhowb*phi
-         wbc(l,f,e,iu5)  = rhoeb*phi
+         wbc(l,jrho) = rhob
+         wbc(l,jux)  = ux
+         wbc(l,juy)  = uy
+         wbc(l,juz)  = uz
+         wbc(l,jsnd) = asnd ! overwritten by Bcond
+         wbc(l,jpr)  = pres ! overwritten by Bcond
+         wbc(l,jthm) = temp ! overwritten by Bcond
+         wbc(l,jcpf) = rho*cp
+         wbc(l,jcvf) = rho*cv
+         wbc(l,ju1)  = rhob*phi
+         wbc(l,ju2)  = rhoub*phi
+         wbc(l,ju3)  = rhovb*phi
+         wbc(l,ju4)  = rhowb*phi
+         wbc(l,ju5)  = rhoeb*phi
       enddo
       enddo
       enddo
@@ -100,30 +104,24 @@ c                                     !     ux,uy,uz
 
 !--------------------------------------------------------------------
 
-      subroutine inflow_inviscid(nvar,f,e,facew,wbc)
-! JH021717 more conventional Dolejsi & Feistauer (2015),
-!          Hartmann & Houston (2006) type boundary conditions
-!          Emergency fallback if Holmes just doesn't play nice with DG
+C> \ingroup isurf
+C> @{
+      subroutine inflow_df(f,e,wm,wp,um,up,nvar)
+C> more conventional Dolejsi & Feistauer (2015) Section 8.3.2.2
+C> ``physical'' boundary conditions. Also encountered in
+C> Hartmann & Houston (2006). A poor default.
       include 'SIZE'
-!     include 'TSTEP' ! diagnostics
-      include 'INPUT'
+      include 'TOTAL'
       include 'NEKUSE'
       include 'CMTDATA'
-      include 'GEOM'
-      include 'PARALLEL'
-      include 'DG'
-      include 'PERFECTGAS'
 
-      integer f,e,fdim ! intent(in)
-      integer i
-      real facew(lx1*lz1,2*ldim,nelt,nvar) ! intent(in)
-      real wbc  (lx1*lz1,2*ldim,nelt,nvar)   ! intent(out)
-      real snx,sny,snz,rhou,rhov,rhow,pl,rhob,rhoub,rhovb,rhowb
-     >     ,rhoeb, mach
+      integer f,e,nvar ! intent(in)
+      real wm(nvar,lx1*lz1),wp(nvar,lx1*lz1),
+     >     um(toteq,lx1*lz1),up(toteq,lx1*lz1)
+      real mach
+      integer eq
 
       nxz=lx1*lz1
-      nxzd=lxd*lzd
-      fdim=ldim-1
       ieg=lglel(e)
 
       call facind(i0,i1,j0,j1,k0,k1,lx1,ly1,lz1,f)    
@@ -133,60 +131,53 @@ c                                     !     ux,uy,uz
       do ix=i0,i1
          call nekasgn(ix,iy,iz,e)
          call cmtasgn(ix,iy,iz,e)
-         call userbc (ix,iy,iz,f,ieg) ! get molarmass asnd phi t0in p0in cp cv
-c                                     !     ux,uy,uz
+         call userbc (ix,iy,iz,f,ieg) ! get rho, molarmass, ux, uy and uz
          l=l+1
-         wbc(l,f,e,irho) = rho  ! Dirichlet, userbc
-         wbc(l,f,e,iux)  = ux   ! Dirichlet, userbc
-         wbc(l,f,e,iuy)  = uy   ! Dirichlet, userbc
-         wbc(l,f,e,iuz)  = uz   ! Dirichlet, userbc
-         wbc(l,f,e,iph)  = phi  ! Dirichlet, userbc
-         rhob   = rho*phi
-         rhoub  = rho*ux*phi
-         rhovb  = rho*uy*phi
-         rhowb  = rho*uz*phi
-         wbc(l,f,e,iu1)  = rhob
-         wbc(l,f,e,iu2)  = rhoub
-         wbc(l,f,e,iu3)  = rhovb
-         wbc(l,f,e,iu4)  = rhowb
+         do eq=1,toteq
+            um(eq,l)=u(ix,iy,iz,eq,e)
+         enddo
+         wm(iux,l)=vx(ix,iy,iz,e)
+         wm(iuy,l)=vy(ix,iy,iz,e)
+         wm(iuz,l)=vz(ix,iy,iz,e)
+         wm(ipr,l)=pr(ix,iy,iz,e)
+         wm(ithm,l)=t(ix,iy,iz,e,1)
+         wm(irho,l)=vtrans(ix,iy,iz,e,jrho)
+         wm(isnd,l)=csound(ix,iy,iz,e)
+         wm(iph,l)=phig(ix,iy,iz,e)
 
-         if (if3d) then ! shouldn't this be normal Mach number?
-            mach = sqrt(ux**2+uy**2+uz**2)/asnd
-            snz  = unz(l,1,f,e)
-         else
-            mach = sqrt(ux**2+uy**2)/asnd
-            snz=0.0
-         endif
+         wp(iux,l)= ux   ! Dirichlet, userbc
+         wp(iuy,l)= uy   ! Dirichlet, userbc
+         wp(iuz,l)= uz   ! Dirichlet, userbc
+         wp(iph,l)  = phi  ! Dirichlet, userbc.
+         wp(irho,l)=rho  ! Dirichlet, userbc
+         up(1,l)= rho*phi
+         up(2,l)= rho*ux*phi
+         up(3,l)= rho*uy*phi
+         up(4,l)= rho*uz*phi
 
          snx  = unx(l,1,f,e)
          sny  = uny(l,1,f,e)
+         snz  = unz(l,1,f,e)
+         mach = abs(ux*snx+uy*sny+uz*snz)/asnd ! better be uz=0.0 in 2D
 
          if (mach.lt.1.0) then
 
-            pres  = facew(l,f,e,ipr) ! extrapolated, overwritten
-            temp = pres/rho/(cp-cv) ! definitely too perfect!
-            wbc(l,f,e,ipr)  = pres
-            wbc(l,f,e,isnd) = sqrt(cp/cv*pres/rho) ! too perfect?
-            wbc(l,f,e,ithm) = temp      ! definitely too perfect!
-!           wbc(l,f,e,icpf) = rho*cp ! NEED EOS WITH TEMP Dirichlet, userbc
-            wbc(l,f,e,icpf) = cv*temp!e_internal
-            wbc(l,f,e,icvf) = rho*cv ! NEED EOS WITH TEMP Dirichlet, userbc
+            wp(ipr,l)  = wm(ipr,l)
+            wp(isnd,l) = asnd ! userbc should have set this to a(p-,rho+)
+            wp(ithm,l) = temp ! userbc should have set this to T(p-,rho+)
 
          else ! supersonic inflow
 
-            wbc(l,f,e,ipr)  = pres
-            wbc(l,f,e,isnd) = asnd
-            wbc(l,f,e,ithm) = temp
-!           wbc(l,f,e,icpf) = rho*cp
-            wbc(l,f,e,icpf) = e_internal
-            wbc(l,f,e,icvf) = rho*cv
+            wp(ipr,l)  = pres ! Inflow state, userbc
+            wp(isnd,l) = asnd ! Inflow state, userbc
+            wp(ithm,l) = temp ! Inflow state, userbc
 
          endif
 
-! find a smarter way of doing this. fold it into usr file if you must
-
-         wbc(l,f,e,iu5)  = phi*rho*e_internal+0.5/rhob*(rhoub**2+rhovb**2+
-     >                                               rhowb**2)
+! userbc should have set e_internal to Dirichlet state (supersonic) or p-/(gm-1)
+! here and only here is e_internal density-weighted.
+         up(5,l) = e_internal+0.5*rho*(ux**2+uy**2+uz**2)
+         up(5,l) = up(5,l)*phi
 
       enddo
       enddo

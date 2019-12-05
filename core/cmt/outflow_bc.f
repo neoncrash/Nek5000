@@ -1,13 +1,97 @@
 C> @file outflow_bc.f Dirichlet states for outflow boundary conditions
-      subroutine outflow(nvar,f,e,facew,wbc) ! don't really need nvar anymore
+C> wrapper for other BC routines. Just one for now. More to come.
+      subroutine outflow(f,e,wminus,wplus,uminus,uplus,nvar)
       INCLUDE 'SIZE'
+      INCLUDE 'CMTSIZE'
       INCLUDE 'INPUT'
+      INCLUDE 'CMTBCDATA'
+      integer nvar,f,e
+      real wminus(nvar,lx1*lz1),wplus(nvar,lx1*lz1),
+     >     uminus(toteq,lx1*lz1),uplus(toteq,lx1*lz1)
 
-      integer  nvar,f,e
-      real facew(lx1,lz1,2*ldim,nelt,nvar)
-      real wbc(lx1,lz1,2*ldim,nelt,nvar)
+      call outflow_df(f,e,wminus,wplus,uminus,uplus,nvar)
 
-      call outflow_rflu(nvar,f,e,facew,wbc)
+      return
+      end
+
+!--------------------------------------------------------------------
+
+C> \ingroup isurf
+C> @{
+      subroutine outflow_df(f,e,wm,wp,um,up,nvar)
+C> more conventional Dolejsi & Feistauer (2015) Section 8.3.2.2
+C> ``physical'' boundary conditions. Also encountered in
+C> Hartmann & Houston (2006). A poor default.
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      include 'CMTDATA'
+
+      integer f,e,nvar ! intent(in)
+      real wm(nvar,lx1*lz1),wp(nvar,lx1*lz1),
+     >     um(toteq,lx1*lz1),up(toteq,lx1*lz1)
+      real mach
+      integer eq
+
+      nxz=lx1*lz1
+      ieg=lglel(e)
+
+      call facind(i0,i1,j0,j1,k0,k1,lx1,ly1,lz1,f)    
+      l=0
+      do iz=k0,k1
+      do iy=j0,j1
+      do ix=i0,i1
+         call nekasgn(ix,iy,iz,e)
+         call cmtasgn(ix,iy,iz,e)
+         call userbc (ix,iy,iz,f,ieg) ! get pinfty and e_internal=\rho e
+         l=l+1
+         do eq=1,toteq
+            um(eq,l)=u(ix,iy,iz,eq,e)
+         enddo
+         wm(iux,l)=vx(ix,iy,iz,e)
+         wm(iuy,l)=vy(ix,iy,iz,e)
+         wm(iuz,l)=vz(ix,iy,iz,e)
+         wm(ipr,l)=pr(ix,iy,iz,e)
+         wm(ithm,l)=t(ix,iy,iz,e,1)
+         wm(irho,l)=vtrans(ix,iy,iz,e,jrho)
+         wm(isnd,l)=csound(ix,iy,iz,e)
+         wm(iph,l)=phig(ix,iy,iz,e)
+
+         wp(iux,l)= wm(iux,l)
+         wp(iuy,l)= wm(iuy,l)
+         wp(iuz,l)= wm(iuz,l)
+         wp(iph,l)  = wm(iph,l)
+         wp(irho,l)= wm(irho,l)
+         call copy(up(1,l),um(1,l),4)
+
+         snx  = unx(l,1,f,e)
+         sny  = uny(l,1,f,e)
+         snz  = unz(l,1,f,e)
+         mach = abs(wm(iux,l)*snx+wm(iuy,l)*sny+wm(iuz,l)*snz)/
+     >          wm(isnd,l)
+
+         if (mach.lt.1.0) then ! userbc should have set this to pinfty
+
+            wp(ipr,l)  = pres ! userbc should have set this to pinfty
+            wp(isnd,l) = asnd ! userbc should have set this to a(pinfty,rho-)
+            wp(ithm,l) = temp   ! userbc should have set this to T(pinfty,rho-)
+!           up(5,l)=wm(jrho,l)*e_internal ! userbc plz set e_internal(temp)
+            up(5,l)=e_internal ! here AND ONLY HERE is e_internal density-weighted
+     >          +0.5*wm(irho,l)*(wm(iux,l)**2+wm(iuy,l)**2+wm(iuz,l)**2)
+            up(5,l)=up(5,l)*wm(iph,l)
+
+         else ! supersonic outflow
+
+            wp(ipr,l)  = wm(ipr,l)
+            wp(isnd,l) = wm(isnd,l)
+            wp(ithm,l) = wm(ithm,l)
+            up(5,l)=um(5,l)
+
+         endif
+
+      enddo
+      enddo
+      enddo
 
       return
       end
@@ -53,11 +137,10 @@ C> @file outflow_bc.f Dirichlet states for outflow boundary conditions
          rhow= facew(l,f,e,iu4)/phi
          rhoe= facew(l,f,e,iu5)/phi
          pl= facew(l,f,e,ipr) ! P- here
-         wbc(l,f,e,icpf)=facew(l,f,e,icpf)
-         wbc(l,f,e,icvf)=facew(l,f,e,icvf)
-         cv=facew(l,f,e,icvf)/rho
-! JH080118 FIX THIS fOR NEW JWL CODE
-         cp=cpgref
+         wbc(l,f,e,jcpf)=facew(l,f,e,jcpf)
+         wbc(l,f,e,jcvf)=facew(l,f,e,jcvf)
+         cp=facew(l,f,e,jcpf)/rho
+         cv=facew(l,f,e,jcvf)/rho
 c        fs = 0.0
          if(outflsub)then
             pres= pinfty
@@ -69,23 +152,23 @@ c        fs = 0.0
          call BcondOutflowPerf(idbc,pres,sxn,syn,szn,cp,molarmass,
      >                         rho,rhou,rhov,rhow,rhoe,pl,
      >                         rhob,rhoub,rhovb,rhowb,rhoeb )
-         wbc(l,f,e,irho)=rhob
-         wbc(l,f,e,iux)=rhoub/rhob
-         wbc(l,f,e,iuy)=rhovb/rhob
-         wbc(l,f,e,iuz)=rhowb/rhob
+         wbc(l,f,e,jrho)=rhob
+         wbc(l,f,e,jux)=rhoub/rhob
+         wbc(l,f,e,juy)=rhovb/rhob
+         wbc(l,f,e,juz)=rhowb/rhob
 ! dammit fix this. tdstate to the rescue?
-         wbc(l,f,e,ithm)=(rhoeb-0.5*(rhoub**2+rhovb**2+rhowb**2)/rhob)/
+         wbc(l,f,e,jthm)=(rhoeb-0.5*(rhoub**2+rhovb**2+rhowb**2)/rhob)/
      >                   cv
 ! dammit fix that
-         wbc(l,f,e,iu1)=rhob*phi
-         wbc(l,f,e,iu2)=rhoub*phi
-         wbc(l,f,e,iu3)=rhovb*phi
-         wbc(l,f,e,iu4)=rhowb*phi
-         wbc(l,f,e,iu5)=rhoeb*phi
-         wbc(l,f,e,iph)=phi
-         wbc(l,f,e,ipr)=pres
+         wbc(l,f,e,ju1)=rhob*phi
+         wbc(l,f,e,ju2)=rhoub*phi
+         wbc(l,f,e,ju3)=rhovb*phi
+         wbc(l,f,e,ju4)=rhowb*phi
+         wbc(l,f,e,ju5)=rhoeb*phi
+         wbc(l,f,e,jph)=phi
+         wbc(l,f,e,jpr)=pres
 ! dammit fix this. tdstate to the rescue?
-         wbc(l,f,e,isnd)=sqrt(cp/cv*pres/rho)
+         wbc(l,f,e,jsnd)=sqrt(cp/cv*pres/rho)
 ! dammit fix that
       enddo
       enddo

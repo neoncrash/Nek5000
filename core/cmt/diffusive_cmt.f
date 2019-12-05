@@ -1,6 +1,83 @@
 C> @file diffusive_cmt.f routines for diffusive fluxes.
 C> Some surface. Some volume. All pain. Jacobians and other factorizations.
 
+!-----------------------------------------------------------------------
+
+C> \ingroup vsurf
+C> @{
+C> add BR1 auxiliary flux \f$\frac{1}{2}\left(\mathbf{U}^+-\mathbf{U}^-\right)\f$
+C> to viscous flux in diffh
+      subroutine br1auxflux(e,flux,ujump)
+! JH091319 CHECK IF THIS IS FREESTREAM-PRESERVING!!!
+!     include 'CMTDATA'
+! JH091819 REWRITE TO USE JFACE AND WXM1 INSTEAD OF indexing 3D arrays
+!          with facind!!!! Try removing jacmi from compute_gradients_contra
+!          and multiplying gradu by it just before viscous_cmt
+      include 'SIZE'
+      include 'INPUT' ! if3d
+      include 'GEOM'  ! for unx (and area in oldcode)
+      include 'TSTEP' ! for ifield?
+      include 'DG'
+      include 'WZ'
+      include 'MASS'
+
+      integer e
+      real ujump(lx1*lz1*2*ldim,nelt),
+     >     flux(lx1*ly1*lz1,ldim)
+      integer f,i,k,nxz,nface
+      common /scrns/ facepile(lx1*lz1,2*ldim),facen(lx1*lz1,2*ldim)
+      real facepile,facen
+
+      nface = 2*ldim
+      nxz   = lx1*lz1
+
+      l=0
+      do f=1,nface
+
+! -(U--{{U}}) = 1/2*(U+-U-), from fillujumpu
+! JH091719 I guess I didn't recycle imqqtu for this because I didn't
+!          want to change sign before add_face2full.
+         do i=1,nxz
+            l=l+1
+            facepile(i,f) = 0.5*ujump(l,e)
+         enddo
+
+         call col2(facepile(1,f),area(1,1,f,e),nxz)
+! TRY THIS INSTEAD
+!        call col2(facepile(1,f),jface(1,1,f,e),nxz)
+         call facind(i0,i1,j0,j1,k0,k1,lx1,ly1,lz1,f)
+
+         m=0
+         do k=k0,k1
+         do j=j0,j1
+         do i=i0,i1
+            m=m+1
+! TRY THIS INSTEAD
+!        do iz=1,lz1
+!        do ix=1,lx1
+!           m=m+1
+!           facepile(m,f)=facepile(m,f)/wxm1(1) or wxm1(lx1)
+! I'd still need a facind loop on jacmi or full2face on jacmi :(
+            facepile(m,f)=facepile(m,f)/bm1(i,j,k,e)
+         enddo
+         enddo
+         enddo
+      enddo
+
+! facepile should have -(U--{{U}})*JA / (J*wxm1(+-1)) by now
+! -(U--{{U}})*JA / (J*wxm1(+-1)) ox n
+      do k=1,ldim
+         if (k.eq.1) call col3(facen,facepile,unx(1,1,1,e),nxz*nface)
+         if (k.eq.2) call col3(facen,facepile,uny(1,1,1,e),nxz*nface)
+         if (k.eq.3) call col3(facen,facepile,unz(1,1,1,e),nxz*nface)
+         call add_face2full_cmt(1,lx1,ly1,lz1,iface_flux(1,e),
+     >                          flux(1,k),facen)
+      enddo
+
+C> @}
+      return
+      end
+
 C> \ingroup vsurf
 C> @{
 C> ummcu = \f$\mathbf{U}^--\{\{\mathbf{U}\}\}\f$
@@ -12,6 +89,7 @@ C> ummcu = \f$\mathbf{U}^--\{\{\mathbf{U}\}\}\f$
 !          spoken is "UMinus Minus the Central flux of U" which I
 !          then abbreviate as ummcu
       include 'SIZE'
+      include 'CMTSIZE'
 
       real ummcu (lx1*lz1*2*ldim*nelt,toteq) ! intent(out)
       real uminus(lx1*lz1*2*ldim*nelt,toteq) ! intent(in)
@@ -75,7 +153,7 @@ C> umubc = \f$\mathbf{U}^--\mathbf{U}^D\f$
 ! JH111416 This may look like lazy duplication, but there is a good chance
 !          that this may replace/consolidate BC calls in InviscidFlus.
 !          basically, nothing in wplus is trustworthy, so we are going to
-!          recompute and overwrite iu1 through iu5 in wplus with stuff we
+!          recompute and overwrite ju1 through ju5 in wplus with stuff we
 !          do trust (UBC, to be exact).
 !           if (cb.eq.'v  ' .or. cb .eq. 'V  ') then
 !             call inflow2(nqq,f,e,wminus,wplus)
@@ -86,8 +164,8 @@ C> umubc = \f$\mathbf{U}^--\mathbf{U}^D\f$
 !  -
 ! U - UBC
             do ivar=1,toteq
-               call sub3(umubc(1,f,e,ivar),wminus(1,f,e,iu1+ivar-1),
-     >                                      wplus(1,f,e,iu1+ivar-1),nxz)
+               call sub3(umubc(1,f,e,ivar),wminus(1,f,e,ju1+ivar-1),
+     >                                      wplus(1,f,e,ju1+ivar-1),nxz)
             enddo
 
          endif 
@@ -133,17 +211,17 @@ C> flux = \f$\mathscr{A}\f$ dU = \f$\left(\mathscr{A}^{\mbox{NS}}+\mathscr{A}^{\
 ! flux is zero on entry
 !-----------------------------------------------------------------------
       integer e, eq
-      real flux(lx1*ly1*lz1,ldim),du(lx1*ly1*lz1,toteq,ldim)
+      real flux(lx1*ly1*lz1,ldim),du(lx1*ly1*lz1,3,toteq)
 
 C> \f$\tau_{ij}\f$ and \f$u_j \tau_{ij}\f$.  \f$\lambda=0\f$ and \f$\kappa=0\f$
 C> for EVM
       call fluxj_ns (flux,du,e,eq)
 C> \f$\nu_s \nabla \rho\f$, \f$\nu_s \left(\nabla \rho \right) \otimes \mathbf{u}\f$
 C> and \f$\nu_s \nabla \left(\rho e\right)\f$.  \f$\nu_s=0\f$ for Navier-Stokes
-!      call fluxj_evm(flux,du,e,eq)
+!     call fluxj_evm(flux,du,e,eq)
 
 ! no idea where phi goes. put it out front
-c     call col2(flux,phig(1,1,1,e),lx1*ly1*lz1)
+!     call col2(flux,phig(1,1,1,e),lx1*ly1*lz1)
 
 C> @}
       return
@@ -159,6 +237,7 @@ C> Implemented via maxima-generated code
 ! SOLN and CMTDATA are indexed, assuming vdiff has been filled by uservp
 ! somehow. In serious need of debugging and replacement.
       include 'SIZE'
+      include 'CMTSIZE'
       include 'INPUT'! TRIAGE?
       include 'SOLN' ! TRIAGE?
 
@@ -166,8 +245,8 @@ C> Implemented via maxima-generated code
       common /ctmp1/ viscscr(lx1,ly1,lz1)
       real viscscr
 
-      integer e,eq
-      real flux(lx1*ly1*lz1,ldim),gradu(lx1*ly1*lz1,toteq,ldim)
+      integer e,eq,eq2
+      real flux(lx1*ly1*lz1,ldim),gradu(lx1*ly1*lz1,3,toteq)
       integer eijk3(3,3,3)
 !     data eijk2 / 0, -1, 1, 0/
       data eijk3
@@ -214,7 +293,9 @@ C> Implemented via maxima-generated code
          if (if3d) then
             call a53kldUldxk(flux(1,3),gradu,e)
          else
-            call rzero(gradu(1,1,3),lx1*ly1*lz1*toteq)
+            do eq2=1,toteq
+               call rzero(gradu(1,3,eq2),lx1*ly1*lz1)
+            enddo
             call rzero(vz(1,1,1,e),lx1*ly1*lz1)
          endif
          call a51kldUldxk(flux(1,1),gradu,e)
@@ -245,19 +326,19 @@ C> the compressible Navier-Stokes equations (NS).
       real viscscr
 
       integer e,eq,eq2
-      real flux(lx1*ly1*lz1,ldim),du(lx1*ly1*lz1,toteq,ldim)
+      real flux(lx1*ly1*lz1,ldim),du(lx1*ly1*lz1,3,toteq)
 
       n=lx1*ly1*lz1
 
 ! diffusion due to grad rho
       if (eq .eq. 1) then
          do j=1,ldim ! flux+= viscscr*nu_s*grad (rho)
-            call addcol3(flux(1,j),vdiff(1,1,1,e,inus),du(1,1,j),n)
+            call addcol3(flux(1,j),vdiff(1,1,1,e,jnus),du(1,j,1),n)
          enddo
       else
          if (eq.lt.toteq) then
-            call copy(viscscr,du(1,1,eq-1),n)
-            call col2(viscscr,vdiff(1,1,1,e,inus),n)
+            call copy(viscscr,du(1,eq-1,1),n)
+            call col2(viscscr,vdiff(1,1,1,e,jnus),n)
             call addcol3(flux(1,1),viscscr,vx(1,1,1,e),n)
             call addcol3(flux(1,2),viscscr,vy(1,1,1,e),n)
             if (if3d) call addcol3(flux(1,3),viscscr,vz(1,1,1,e),n)
@@ -271,19 +352,19 @@ C> the compressible Navier-Stokes equations (NS).
                call vdot2(viscscr,vx(1,1,1,e),vy(1,1,1,e),
      >                            vx(1,1,1,e),vy(1,1,1,e),n)
             endif
-            call col2(viscscr,vdiff(1,1,1,e,inus),n)
+            call col2(viscscr,vdiff(1,1,1,e,jnus),n)
             do j=1,ldim
-               call addcol3(flux(1,j),du(1,1,j),viscscr,n)
+               call addcol3(flux(1,j),du(1,j,1),viscscr,n)
             enddo
 
             do j=1,ldim
                do eq2=2,ldim+1
-                  call col4(viscscr,du(1,eq2,j),u(1,1,1,eq2,e),
-     >                           vdiff(1,1,1,e,inus),n)
+                  call col4(viscscr,du(1,j,eq2),u(1,1,1,eq2,e),
+     >                           vdiff(1,1,1,e,jnus),n)
                   call invcol2(viscscr,vtrans(1,1,1,e,irho),n) ! scr=nu_s*U/rho
                   call sub2(flux(1,j),viscscr,n)
                enddo
-               call addcol3(flux(1,j),du(1,toteq,j),vdiff(1,1,1,e,inus),
+               call addcol3(flux(1,j),du(1,j,toteq),vdiff(1,1,1,e,jnus),
      >                      n)
             enddo
          endif ! eq<toteq?
@@ -300,19 +381,28 @@ C> the compressible Navier-Stokes equations (NS).
       include 'MASS'
 ! diffh has D AgradU. half_iku_cmt applies D^T BM1 to it and increments
 ! the residual res with the result
+      common /ctmp0/ rscr(lx1,ly1,lz1) ! scratch element for residual.
+      real rscr
       integer e ! lopsided. routine for one element must reference bm1
+                ! check if this is freestream-preserving or not
       real res(lx1,ly1,lz1),diffh(lx1*ly1*lz1,ldim)
 
       n=lx1*ly1*lz1
+      call rzero(rscr,n)
 
+! M
       do j=1,ldim
          call col2(diffh(1,j),bm1(1,1,1,e),n)
 !        call col2(diffh(1,j),phig(1,1,1,e),n) ! still no idea where phi goes
       enddo
 
 !     const=-1.0 ! I0
+! D^T M
       const=1.0  ! *-1 in time march
-      call gradm11_t(res,diffh,const,e)
+      call gradm11_t_contra(rscr,diffh,const,e)
+! M^{-1}D^T M
+      call invcol2(rscr,bm1(1,1,1,e),n)
+      call add2(res,rscr,n)
 
       return
       end
@@ -321,7 +411,7 @@ C> the compressible Navier-Stokes equations (NS).
 
       subroutine compute_transport_props
 ! get vdiff props
-! viscosity in imu
+! viscosity in jmu
 ! second viscosity in ilam; second viscosity is usually -2/3mu
 ! but we refuse to assume Stokes' hypothesis for the user
 ! second viscosity=0 in the EVM for Euler gas dynamics
@@ -344,10 +434,10 @@ C> the compressible Navier-Stokes equations (NS).
             call nekasgn(i,j,k,e)
             call cmtasgn(i,j,k,e)
             call uservp(i,j,k,ieg)
-            vdiff(i,j,k,e,imu)  = mu   ! NEKUSE
-            vdiff(i,j,k,e,ilam) = lambda!NEKUSE
-            vdiff(i,j,k,e,iknd) = udiff! NEKUSE
-            vdiff(i,j,k,e,inus) = nu_s ! CMTDATA
+            vdiff(i,j,k,e,jmu)  = mu   ! CMTDATA
+            vdiff(i,j,k,e,jlam) = lambda!CMTDATA
+            vdiff(i,j,k,e,jknd) = udiff! NEKUSE
+            vdiff(i,j,k,e,jnus) = nu_s ! CMTDATA
          enddo
          enddo
          enddo
@@ -364,30 +454,30 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU2x=dU(i,2,1)
-         dU3x=dU(i,3,1)
-         dU4x=dU(i,4,1)
-         dU5x=dU(i,5,1)
-         dU1y=dU(i,1,2)
+         dU2x=dU(i,1,2)
+         dU3x=dU(i,1,3)
+         dU4x=dU(i,1,4)
+         dU5x=dU(i,1,5)
+         dU1y=dU(i,2,1)
          dU2y=dU(i,2,2)
-         dU3y=dU(i,3,2)
-         dU4y=dU(i,4,2)
-         dU5y=dU(i,5,2)
-         dU1z=dU(i,1,3)
-         dU2z=dU(i,2,3)
+         dU3y=dU(i,2,3)
+         dU4y=dU(i,2,4)
+         dU5y=dU(i,2,5)
+         dU1z=dU(i,3,1)
+         dU2z=dU(i,3,2)
          dU3z=dU(i,3,3)
-         dU4z=dU(i,4,3)
-         dU5z=dU(i,5,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         cv    =vtrans(i,1,1,ie,icv)/rho
-         lambda=vdiff(i,1,1,ie,ilam)
-         mu    =vdiff(i,1,1,ie,imu)
-         K     =vdiff(i,1,1,ie,iknd)
+         dU4z=dU(i,3,4)
+         dU5z=dU(i,3,5)
+         rho   =vtrans(i,1,1,ie,jrho)
+         cv    =vtrans(i,1,1,ie,jcv)/rho
+         lambda=vdiff(i,1,1,ie,jlam)
+         mu    =vdiff(i,1,1,ie,jmu)
+         K     =vdiff(i,1,1,ie,jknd)
          u1    =vx(i,1,1,ie)
          u2    =vy(i,1,1,ie)
          u3    =vz(i,1,1,ie)
@@ -409,30 +499,30 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU2x=dU(i,2,1)
-         dU3x=dU(i,3,1)
-         dU4x=dU(i,4,1)
-         dU5x=dU(i,5,1)
-         dU1y=dU(i,1,2)
+         dU2x=dU(i,1,2)
+         dU3x=dU(i,1,3)
+         dU4x=dU(i,1,4)
+         dU5x=dU(i,1,5)
+         dU1y=dU(i,2,1)
          dU2y=dU(i,2,2)
-         dU3y=dU(i,3,2)
-         dU4y=dU(i,4,2)
-         dU5y=dU(i,5,2)
-         dU1z=dU(i,1,3)
-         dU2z=dU(i,2,3)
+         dU3y=dU(i,2,3)
+         dU4y=dU(i,2,4)
+         dU5y=dU(i,2,5)
+         dU1z=dU(i,3,1)
+         dU2z=dU(i,3,2)
          dU3z=dU(i,3,3)
-         dU4z=dU(i,4,3)
-         dU5z=dU(i,5,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         cv    =vtrans(i,1,1,ie,icv)/rho
-         lambda=vdiff(i,1,1,ie,ilam)
-         mu    =vdiff(i,1,1,ie,imu)
-         K     =vdiff(i,1,1,ie,iknd)
+         dU4z=dU(i,3,4)
+         dU5z=dU(i,3,5)
+         rho   =vtrans(i,1,1,ie,jrho)
+         cv    =vtrans(i,1,1,ie,jcv)/rho
+         lambda=vdiff(i,1,1,ie,jlam)
+         mu    =vdiff(i,1,1,ie,jmu)
+         K     =vdiff(i,1,1,ie,jknd)
          u1    =vx(i,1,1,ie)
          u2    =vy(i,1,1,ie)
          u3    =vz(i,1,1,ie)
@@ -453,30 +543,30 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU2x=dU(i,2,1)
-         dU3x=dU(i,3,1)
-         dU4x=dU(i,4,1)
-         dU5x=dU(i,5,1)
-         dU1y=dU(i,1,2)
+         dU2x=dU(i,1,2)
+         dU3x=dU(i,1,3)
+         dU4x=dU(i,1,4)
+         dU5x=dU(i,1,5)
+         dU1y=dU(i,2,1)
          dU2y=dU(i,2,2)
-         dU3y=dU(i,3,2)
-         dU4y=dU(i,4,2)
-         dU5y=dU(i,5,2)
-         dU1z=dU(i,1,3)
-         dU2z=dU(i,2,3)
+         dU3y=dU(i,2,3)
+         dU4y=dU(i,2,4)
+         dU5y=dU(i,2,5)
+         dU1z=dU(i,3,1)
+         dU2z=dU(i,3,2)
          dU3z=dU(i,3,3)
-         dU4z=dU(i,4,3)
-         dU5z=dU(i,5,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         cv    =vtrans(i,1,1,ie,icv)/rho
-         lambda=vdiff(i,1,1,ie,ilam)
-         mu    =vdiff(i,1,1,ie,imu)
-         K     =vdiff(i,1,1,ie,iknd)
+         dU4z=dU(i,3,4)
+         dU5z=dU(i,3,5)
+         rho   =vtrans(i,1,1,ie,jrho)
+         cv    =vtrans(i,1,1,ie,jcv)/rho
+         lambda=vdiff(i,1,1,ie,jlam)
+         mu    =vdiff(i,1,1,ie,jmu)
+         K     =vdiff(i,1,1,ie,jknd)
          u1    =vx(i,1,1,ie)
          u2    =vy(i,1,1,ie)
          u3    =vz(i,1,1,ie)
@@ -498,19 +588,19 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU2x=dU(i,2,1)
-         dU1y=dU(i,1,2)
-         dU3y=dU(i,3,2)
-         dU1z=dU(i,1,3)
-         dU4z=dU(i,4,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         lambda=vdiff(i,1,1,ie,ilam)
-         mu    =vdiff(i,1,1,ie,imu)
+         dU2x=dU(i,1,2)
+         dU1y=dU(i,2,1)
+         dU3y=dU(i,2,3)
+         dU1z=dU(i,3,1)
+         dU4z=dU(i,3,4)
+         rho   =vtrans(i,1,1,ie,jrho)
+         lambda=vdiff(i,1,1,ie,jlam)
+         mu    =vdiff(i,1,1,ie,jmu)
          u1    =vx(i,1,1,ie)
          u2    =vy(i,1,1,ie)
          u3    =vz(i,1,1,ie)
@@ -525,16 +615,16 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU3x=dU(i,3,1)
-         dU1y=dU(i,1,2)
+         dU3x=dU(i,1,3)
+         dU1y=dU(i,2,1)
          dU2y=dU(i,2,2)
-         rho   =vtrans(i,1,1,ie,irho)
-         mu    =vdiff(i,1,1,ie,imu)
+         rho   =vtrans(i,1,1,ie,jrho)
+         mu    =vdiff(i,1,1,ie,jmu)
          u1    =vx(i,1,1,ie)
          u2    =vy(i,1,1,ie)
          flux(i)=mu*(dU3x+dU2y-u1*dU1y-u2*dU1x)/rho
@@ -546,16 +636,16 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU4x=dU(i,4,1)
-         dU1z=dU(i,1,3)
-         dU2z=dU(i,2,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         mu    =vdiff(i,1,1,ie,imu)
+         dU4x=dU(i,1,4)
+         dU1z=dU(i,3,1)
+         dU2z=dU(i,3,2)
+         rho   =vtrans(i,1,1,ie,jrho)
+         mu    =vdiff(i,1,1,ie,jmu)
          u1    =vx(i,1,1,ie)
          u3    =vz(i,1,1,ie)
          flux(i)=mu*(dU4x+dU2z-u1*dU1z-u3*dU1x)/rho
@@ -568,16 +658,16 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU3x=dU(i,3,1)
-         dU1y=dU(i,1,2)
+         dU3x=dU(i,1,3)
+         dU1y=dU(i,2,1)
          dU2y=dU(i,2,2)
-         rho   =vtrans(i,1,1,ie,irho)
-         mu    =vdiff(i,1,1,ie,imu)
+         rho   =vtrans(i,1,1,ie,jrho)
+         mu    =vdiff(i,1,1,ie,jmu)
          u1    =vx(i,1,1,ie)
          u2    =vy(i,1,1,ie)
          flux(i)=mu*(dU3x+dU2y-u1*dU1y-u2*dU1x)/rho
@@ -589,19 +679,19 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU2x=dU(i,2,1)
-         dU1y=dU(i,1,2)
-         dU3y=dU(i,3,2)
-         dU1z=dU(i,1,3)
-         dU4z=dU(i,4,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         lambda=vdiff(i,1,1,ie,ilam)
-         mu    =vdiff(i,1,1,ie,imu)
+         dU2x=dU(i,1,2)
+         dU1y=dU(i,2,1)
+         dU3y=dU(i,2,3)
+         dU1z=dU(i,3,1)
+         dU4z=dU(i,3,4)
+         rho   =vtrans(i,1,1,ie,jrho)
+         lambda=vdiff(i,1,1,ie,jlam)
+         mu    =vdiff(i,1,1,ie,jmu)
          u1    =vx(i,1,1,ie)
          u2    =vy(i,1,1,ie)
          u3    =vz(i,1,1,ie)
@@ -616,16 +706,16 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
-         dU1y=dU(i,1,2)
-         dU4y=dU(i,4,2)
-         dU1z=dU(i,1,3)
+         dU1y=dU(i,2,1)
+         dU4y=dU(i,2,4)
+         dU1z=dU(i,3,1)
          dU3z=dU(i,3,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         mu    =vdiff(i,1,1,ie,imu)
+         rho   =vtrans(i,1,1,ie,jrho)
+         mu    =vdiff(i,1,1,ie,jmu)
          u2    =vy(i,1,1,ie)
          u3    =vz(i,1,1,ie)
          flux(i)=mu*(dU4y+dU3z-u2*dU1z-u3*dU1y)/rho
@@ -638,16 +728,16 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU4x=dU(i,4,1)
-         dU1z=dU(i,1,3)
-         dU2z=dU(i,2,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         mu    =vdiff(i,1,1,ie,imu)
+         dU4x=dU(i,1,4)
+         dU1z=dU(i,3,1)
+         dU2z=dU(i,3,2)
+         rho   =vtrans(i,1,1,ie,jrho)
+         mu    =vdiff(i,1,1,ie,jmu)
          u1    =vx(i,1,1,ie)
          u3    =vz(i,1,1,ie)
          flux(i)=mu*(dU4x+dU2z-u1*dU1z-u3*dU1x)/rho
@@ -659,16 +749,16 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
-         dU1y=dU(i,1,2)
-         dU4y=dU(i,4,2)
-         dU1z=dU(i,1,3)
+         dU1y=dU(i,2,1)
+         dU4y=dU(i,2,4)
+         dU1z=dU(i,3,1)
          dU3z=dU(i,3,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         mu    =vdiff(i,1,1,ie,imu)
+         rho   =vtrans(i,1,1,ie,jrho)
+         mu    =vdiff(i,1,1,ie,jmu)
          u2    =vy(i,1,1,ie)
          u3    =vz(i,1,1,ie)
          flux(i)=mu*(dU4y+dU3z-u2*dU1z-u3*dU1y)/rho
@@ -680,19 +770,19 @@ C> the compressible Navier-Stokes equations (NS).
       include 'SOLN'
       include 'CMTDATA' ! gradu lurks
       real K,E,kmcvmu,lambdamu
-      real dU(lx1*ly1*lz1,toteq,3)
+      real dU(lx1*ly1*lz1,3,toteq)
       real flux(lx1*ly1*lz1)
       npt=lx1*ly1*lz1
       do i=1,npt
          dU1x=dU(i,1,1)
-         dU2x=dU(i,2,1)
-         dU1y=dU(i,1,2)
-         dU3y=dU(i,3,2)
-         dU1z=dU(i,1,3)
-         dU4z=dU(i,4,3)
-         rho   =vtrans(i,1,1,ie,irho)
-         lambda=vdiff(i,1,1,ie,ilam)
-         mu    =vdiff(i,1,1,ie,imu)
+         dU2x=dU(i,1,2)
+         dU1y=dU(i,2,1)
+         dU3y=dU(i,2,3)
+         dU1z=dU(i,3,1)
+         dU4z=dU(i,3,4)
+         rho   =vtrans(i,1,1,ie,jrho)
+         lambda=vdiff(i,1,1,ie,jlam)
+         mu    =vdiff(i,1,1,ie,jmu)
          u1    =vx(i,1,1,ie)
          u2    =vy(i,1,1,ie)
          u3    =vz(i,1,1,ie)
