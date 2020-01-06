@@ -10,5 +10,9 @@
       integer         mid,mp,nekcomm,nekgroup,nekreal
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
 
-      real wghtc(lx1*lz1), wghtf(lxd*lzd), zptf(lxd), wgtf(lxd)
-      common /facewz/ wghtc, wghtf, zptf, wgtf
+! JH060418 dstrong is 2D with 1,1 and lx1,lx1 zeroed out. It
+!          is the natural form for two-point volume fluxes in
+!          strong form
+      real w2m1(lx1,lz1), wghtf(lxd*lzd), zptf(lxd), wgtf(lxd),
+     > dstrong(lx1,lx1),dstrongt(lx1,lx1)
+      common /facewz/ w2m1, wghtf, zptf, wgtf,dstrong,dstrongt
