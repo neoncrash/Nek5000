@@ -277,7 +277,7 @@ C> @}
          dU3z=dU(i,f,ie,3,3)
          dU4z=dU(i,f,ie,4,3)
          dU5z=dU(i,f,ie,5,3)
-         rho   =wstate(i,f,ie,jrho)
+         rho   =wstate(i,f,ie,jden)
          cv    =wstate(i,f,ie,jcvf)/rho
          lambda=wstate(i,f,ie,jlamf)
          mu    =wstate(i,f,ie,jmuf)
@@ -327,7 +327,7 @@ C> @}
          dU3z=dU(i,f,ie,3,3)
          dU4z=dU(i,f,ie,4,3)
          dU5z=dU(i,f,ie,5,3)
-         rho   =wstate(i,f,ie,jrho)
+         rho   =wstate(i,f,ie,jden)
          cv    =wstate(i,f,ie,jcvf)/rho
          lambda=wstate(i,f,ie,jlamf)
          mu    =wstate(i,f,ie,jmuf)
@@ -377,7 +377,7 @@ C> @}
          dU3z=dU(i,f,ie,3,3)
          dU4z=dU(i,f,ie,4,3)
          dU5z=dU(i,f,ie,5,3)
-         rho   =wstate(i,f,ie,jrho)
+         rho   =wstate(i,f,ie,jden)
          cv    =wstate(i,f,ie,jcvf)/rho
          lambda=wstate(i,f,ie,jlamf)
          mu    =wstate(i,f,ie,jmuf)

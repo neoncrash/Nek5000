@@ -69,7 +69,7 @@ c     call setup_cmt_param
 
       do e=1,nelt
 
-!        rhomin=vlmin(vtrans(1,1,1,e,jrho),nxyz)
+!        rhomin=vlmin(vtrans(1,1,1,e,jden),nxyz)
          rhomin=vlmin(u(1,1,1,1,e),nxyz)
 
 ! positivity-preserving limiter of Zhang and Shu: density

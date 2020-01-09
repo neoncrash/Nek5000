@@ -48,7 +48,7 @@ c     Solve the Euler equations
          call compute_primitive_vars(1) ! get good mu
 !! JH090518 Shock detector is not ready for prime time. Lean on EVM for
 !!          sane default 
-!!        call perssonperaire(t(1,1,1,1,5),vtrans(1,1,1,1,jrho),scrent)
+!!        call perssonperaire(t(1,1,1,1,5),vtrans(1,1,1,1,jden),scrent)
          call limiter
 !!        call wavevisc(t(1,1,1,1,3))
 !! JH082718 mask viscosity in t(:,3)
@@ -70,7 +70,7 @@ c     Solve the Euler equations
          if (stage.eq.1) call copy(res3(1,1,1,1,1),U(1,1,1,1,1),n)
 
          rhst_dum = dnekclock()
-         call compute_rhs_and_dt(AVeverywhere)
+         call compute_rhs_and_dt
          rhst = rhst + dnekclock() - rhst_dum
 c particle equations of motion are solved (also includes forcing)
 c In future this subroutine may compute the back effect of particles
@@ -121,7 +121,7 @@ c compute_rhs_dt for the 5 conserved variables
 !          For now, tuck all this stuff in compute_rhs_and_dt and query
 !          iostep2 at stage==1.
 !-----------------------------------------------------------------------
-!     call copy(t(1,1,1,1,2),vtrans(1,1,1,1,jrho),nxyz1*nelt)
+!     call copy(t(1,1,1,1,2),vtrans(1,1,1,1,jden),nxyz1*nelt)
 !     if (mod(istep,iostep2).eq.0) then
 !     if (mod(istep,iostep2).eq.0.or.istep.eq.1)then
 !     if (mod(istep,iostep).eq.0.or.istep.eq.1)then
@@ -146,17 +146,17 @@ c-----------------------------------------------------------------------
 
 C> Compute right-hand-side of the semidiscrete conservation law
 C> Store it in res1
-      subroutine compute_rhs_and_dt(shock_detector)
+      subroutine compute_rhs_and_dt()
       include 'SIZE'
       include 'TOTAL'
       include 'DG'
       include 'CMTDATA'
       include 'CTIMER'
 
-      integer lfq,heresize,hdsize !$remove lines, ask about lfq
-      parameter (lfq=lx1*lz1*2*ldim*lelt,
-     >                   heresize=nqq*3*lfq,! guarantees transpose of Q+ fits
-     >                   hdsize=toteq*3*lfq) ! might not need ldim
+!      integer lfq,heresize,hdsize !$remove lines, ask about lfq
+!      parameter (lfq=lx1*lz1*2*ldim*lelt,
+!     >                   heresize=nqq*3*lfq,! guarantees transpose of Q+ fits
+!     >                   hdsize=toteq*3*lfq) ! might not need ldim
 ! not sure if viscous surface fluxes can live here yet            !$till here
       common /CMTSURFLX/ flux(heresize),graduf(hdsize)
       real graduf
@@ -164,7 +164,7 @@ C> Store it in res1
       integer e,eq
       real wkj(lx1+lxd)
       character*32  dumchars
-      external shock_detector
+!      external shock_detector
 
       call compute_mesh_h(meshh,xm1,ym1,zm1)
       call compute_grid_h(gridh,xm1,ym1,zm1)
@@ -183,7 +183,7 @@ C> Store it in res1
 !! JH090518 Shock detector is not ready for prime time. Lean on EVM for
 !!          sane default 
 !!     if (stage.eq.1)
-!!    >call shock_detector(t(1,1,1,1,5),vtrans(1,1,1,1,jrho),scrent)
+!!    >call shock_detector(t(1,1,1,1,5),vtrans(1,1,1,1,jden),scrent)
 !     if (1.eq.2) then
       call limiter
 !     endif
@@ -205,7 +205,7 @@ C> Store it in res1
 !          RK loop at the END of the time step, but I lose custody
 !          of commons in SOLN between cmt_nek_advance and the rest of
 !          the time loop.
-         call copy(t(1,1,1,1,2),vtrans(1,1,1,1,jrho),nxyz*nelt)
+         call copy(t(1,1,1,1,2),vtrans(1,1,1,1,jden),nxyz*nelt)
          call cmtchk
 
 !        if (mod(istep,iostep2).eq.0) then
@@ -291,7 +291,7 @@ C> for each equation (inner), one element at a time (outer)
          call compute_gradients_contra(e) ! gradU
          i_cvars=1
          do eq=1,toteq
-            call br1auxflux(e,gradu(1,1,eq),fatface(i_cvars)) ! SEE HEAT.USR
+            call br1auxflux(e,gradu(1,1,eq),flux(i_cvars)) ! SEE HEAT.USR
             i_cvars=i_cvars+nfq
          enddo
          call convective_cmt(e)        ! convh & totalh -> res1
@@ -312,7 +312,7 @@ C> for each equation (inner), one element at a time (outer)
 !      if (1.eq.2) then
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\right] dA\f$
 !      call igu_cmt(flux(iwp),graduf,flux(iwm)) !$replace with line 259
-      call br1primary(fatface(iwm),graduf)
+      call br1primary(flux(iwm),graduf)
       do eq=1,toteq
 !         ieq=(eq-1)*ndg_face+iwp               !$replace with line 261
          ieq=(eq-1)*ndg_face+iwm

@@ -69,11 +69,12 @@ c----------------------------------------------------------------------
       subroutine out_fld_nek
       include 'SIZE'
       include 'SOLN'
-      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt) 
+      include 'CMTDATA'  
+!      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt) 
       COMMON /SCRNS/      OTVAR(LX1,LY1,LZ1,lelt,7)
       real                OTVAR
-      real               phig(lx1,ly1,lz1,lelt)
-      common /otherpvar/ phig
+!      real               phig(lx1,ly1,lz1,lelt)
+!      common /otherpvar/ phig
       integer e,f
 
       n = lx1*ly1*lz1
@@ -193,7 +194,8 @@ c----------------------------------------------------------------------
       INCLUDE 'GEOM'
       INCLUDE 'MASS'
       INCLUDE 'TSTEP'
-      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt) 
+      INCLUDE 'CMTDATA'  
+!      COMMON /solnconsvar/ U(LX1,LY1,LZ1,TOTEQ,lelt) 
       logical if3d
       integer e
       real msum,total_mass

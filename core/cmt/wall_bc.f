@@ -125,7 +125,7 @@ C> @file wall_bc.f Dirichlet states for wall boundary conditions
          do eq=1,toteq
             um(eq,l)=u(ix,iy,iz,eq,e)
          enddo
-         wm(irho,l)=vtrans(ix,iy,iz,e,jrho)
+         wm(irho,l)=vtrans(ix,iy,iz,e,jden)
          wm(iux,l)=vx(ix,iy,iz,e)
          wm(iuy,l)=vy(ix,iy,iz,e)
          wm(iuz,l)=vz(ix,iy,iz,e)
@@ -221,7 +221,7 @@ c                                     ! ux,uy,uz someday
          nx = unx(l,1,f,e)
          ny = uny(l,1,f,e)
          nz = unz(l,1,f,e)
-         rl = facew(l,f,e,jrho)
+         rl = facew(l,f,e,jden)
          ul = facew(l,f,e,jux)
          vl = facew(l,f,e,juy)
          wl = facew(l,f,e,juz)
@@ -230,7 +230,7 @@ c                                     ! ux,uy,uz someday
                   ! like RocFlu
          call RFLU_SetRindStateSlipWallPerf(cp,molarmass,nx,ny,nz,
      >                                      rl,ul,vl,wl,fs,plc(l))
-         wbc(l,f,e,jrho)=rl
+         wbc(l,f,e,jden)=rl
 
 !-----------------------------------------------------------------
 ! JH111516 INVISCID HARDCODING SLIP WALL. DO THIS SMARTER SOON

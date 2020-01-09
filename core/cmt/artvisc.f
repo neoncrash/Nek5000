@@ -32,7 +32,7 @@
 ! usr file because it's EOS-dependent
       rgam=rgasref/(gmaref-1.0)
       do i=1,ntot
-         rho=max(vtrans(i,1,1,1,jrho),ntol)
+         rho=max(vtrans(i,1,1,1,jden),ntol)
          s(i,1,1)=rgam*rho*log(pr(i,1,1,1)/(rho**gmaref))
       enddo
 
@@ -120,7 +120,7 @@
                     res2(ix,iy,iz,e,2) = 0
             else
                     res2(ix,iy,iz,e,2) =ABS(res2(ix,iy,iz,e,2)) 
-     >                                  *vtrans(ix,iy,iz,e,jrho)
+     >                                  *vtrans(ix,iy,iz,e,jden)
      >                                          *e_dist**2
             endif
          enddo
@@ -140,7 +140,7 @@
             enddo
 !            t(ix,iy,iz,e,6) = SQRT(ABS(res2(ix,iy,iz,e,1)))    
             res2(ix,iy,iz,e,1) = SQRT(ABS(res2(ix,iy,iz,e,1))) 
-     >                                  *vtrans(ix,iy,iz,e,jrho)
+     >                                  *vtrans(ix,iy,iz,e,jden)
      >                                          *e_dist**2
                 
          enddo
@@ -169,7 +169,7 @@
                enddo
 !               t(ix,iy,iz,e,7) = ABS(res2(ix,iy,iz,e,3)) !for debug
                res2(ix,iy,iz,e,3) = (ABS(res2(ix,iy,iz,e,3)) /
-     >              (t(ix,iy,iz,e,1))**2) * vtrans(ix,iy,iz,e,jrho) 
+     >              (t(ix,iy,iz,e,1))**2) * vtrans(ix,iy,iz,e,jden) 
      >                * (e_dist**3) * csound(ix,iy,iz,e)**3 
             enddo
             enddo
@@ -537,7 +537,7 @@ c-----------------------------------------------------------------------
      >      sqrt(vx(i,1,1,e)**2+vy(i,1,1,e)**2+vz(i,1,1,e)**2)
          enddo
          maxeig=vlamax(wavespeed,nxyz)
-         rhomax(e)=vlamax(vtrans(1,1,1,e,jrho),nxyz)
+!         rhomax(e)=vlamax(vtrans(1,1,1,e,jden),nxyz)
          do i=1,nxyz
             numax(i,e)=c_max*maxeig*meshh(e)
          enddo

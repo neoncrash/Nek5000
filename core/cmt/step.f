@@ -46,12 +46,12 @@ C> @file step.f time stepping and mesh spacing routines
          call compute_cfl (umax,utmp,vtmp,wtmp,1.0)
          dt_cfl=ctarg/umax
          call glsqinvcolminR(dt1,vdiff(1,1,1,1,jmu ),gridh,ntot,ctarg,
-     >                          vtrans(1,1,1,1,jrho))
+     >                          vtrans(1,1,1,1,jden))
          call glsqinvcolminK(dt2,vdiff(1,1,1,1,jknd),gridh,ntot,ctarg,
-     >                           T(1,1,1,1,1),vtrans(1,1,1,1,jrho))
+     >                           T(1,1,1,1,1),vtrans(1,1,1,1,jden))
          call glsqinvcolmin(dt3,vdiff(1,1,1,1,jnus),gridh,ntot,ctarg)
          call glsqinvcolminR(dt4,vdiff(1,1,1,1,jlam),gridh,ntot,ctarg,
-     >                          vtrans(1,1,1,1,jrho))
+     >                          vtrans(1,1,1,1,jden))
          dt=min(dt_cfl,dt1,dt2,dt3,dt4) !maybe make a dt4?
          if (dt .gt. 10.0) then
             if (nio.eq.0) write(6,*) 'dt huge. crashing ',istep,stage,
@@ -105,12 +105,12 @@ C> @file step.f time stepping and mesh spacing routines
 
 !     call mindr(mdr,diffno2)
       call glinvcol2maxR(diffno1,vdiff(1,1,1,1,jmu), gridh,ntot,dt,
-     >                          vtrans(1,1,1,1,jrho))
+     >                          vtrans(1,1,1,1,jden))
       call glinvcol2maxK(diffno2,vdiff(1,1,1,1,jknd),gridh,ntot,dt,
-     >                          T(1,1,1,1,1),vtrans(1,1,1,1,jrho))
+     >                          T(1,1,1,1,1),vtrans(1,1,1,1,jden))
       call glinvcol2max(diffno3,vdiff(1,1,1,1,jnus),gridh,ntot,dt)
       call glinvcol2maxR(diffno4,vdiff(1,1,1,1,jlam),gridh,ntot,dt,
-     >                          vtrans(1,1,1,1,jrho))
+     >                          vtrans(1,1,1,1,jden))
 !added for lambda tracking also in format statment below 
 !     diffno=max(diffno1,diffno2,diffno3)
       time_cmt= time_cmt+dt

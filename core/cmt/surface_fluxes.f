@@ -91,7 +91,7 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
 
 ! just multipy by {{phi}}
 ! until we can verify correct multiphase two-point fluxes
-!     call faceu(1,fatface(iwm+nfq*(jrhof-1)))
+!     call faceu(1,fatface(iwm+nfq*(jdenf-1)))
 
 ! stabilization first
 ! LLF for equations 1 through 4 (mass & momentum)
@@ -106,7 +106,7 @@ C> \f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
       call fillq(jpr, pr,    fatface(iwm),fatface(iwp))
 ! ONLY needed by Kennedy-Gruber (2008) as written. This is done in fstab
 ! for Chandrashekar (2013), but overwrites jsnd for KG and friends.
-      call fillq(jrhof,vtrans,fatface(iwm),fatface(iwp))
+      call fillq(jdenf,vtrans,fatface(iwm),fatface(iwp))
 ! q- -> z-. Kennedy-Gruber, Pirozzoli, and most energy-
 !           conserving fluxes have z=q, so I just divide total energy by
 !           U1 here since Kennedy-Gruber needs E
@@ -381,7 +381,7 @@ C> @}
             call map_faced(ny,uny(1,1,f,e),lx1,lxd,fdim,0)
             call map_faced(nz,unz(1,1,f,e),lx1,lxd,fdim,0)
 
-            call map_faced(rl,wminus(1,f,e,jrhof),lx1,lxd,fdim,0)
+            call map_faced(rl,wminus(1,f,e,jdenf),lx1,lxd,fdim,0)
             call map_faced(ul,wminus(1,f,e,jux),lx1,lxd,fdim,0)
             call map_faced(vl,wminus(1,f,e,juy),lx1,lxd,fdim,0)
             call map_faced(wl,wminus(1,f,e,juz),lx1,lxd,fdim,0)
@@ -390,7 +390,7 @@ C> @}
             call map_faced(al,wminus(1,f,e,jsnd),lx1,lxd,fdim,0)
             call map_faced(el,wminus(1,f,e,jen),lx1,lxd,fdim,0)
 
-            call map_faced(rr,wplus(1,f,e,jrhof),lx1,lxd,fdim,0)
+            call map_faced(rr,wplus(1,f,e,jdenf),lx1,lxd,fdim,0)
             call map_faced(ur,wplus(1,f,e,jux),lx1,lxd,fdim,0)
             call map_faced(vr,wplus(1,f,e,juy),lx1,lxd,fdim,0)
             call map_faced(wr,wplus(1,f,e,juz),lx1,lxd,fdim,0)
@@ -410,7 +410,7 @@ C> @}
             call copy(ny,uny(1,1,f,e),nxz)
             call copy(nz,unz(1,1,f,e),nxz)
 
-            call copy(rl,wminus(1,f,e,jrhof),nxz)
+            call copy(rl,wminus(1,f,e,jdenf),nxz)
             call copy(ul,wminus(1,f,e,jux),nxz)
             call copy(vl,wminus(1,f,e,juy),nxz)
             call copy(wl,wminus(1,f,e,juz),nxz)
@@ -419,7 +419,7 @@ C> @}
             call copy(al,wminus(1,f,e,jsnd),nxz)
             call copy(el,wminus(1,f,e,jcpf),nxz)
 
-            call copy(rr,wplus(1,f,e,jrhof),nxz)
+            call copy(rr,wplus(1,f,e,jdenf),nxz)
             call copy(ur,wplus(1,f,e,jux),nxz)
             call copy(vr,wplus(1,f,e,juy),nxz)
             call copy(wr,wplus(1,f,e,juz),nxz)
@@ -848,7 +848,7 @@ C> @}
 
       call rzero(fatface(iflx),nfq*toteq)
  
-      call fillq(jrhof,vtrans,fatface(iwm),fatface(iwp))
+      call fillq(jdenf,vtrans,fatface(iwm),fatface(iwp))
       call fillq(jux, vx,    fatface(iwm),fatface(iwp))
       call fillq(juy, vy,    fatface(iwm),fatface(iwp))
       call fillq(juz, vz,    fatface(iwm),fatface(iwp))
@@ -897,7 +897,7 @@ C> @}
       iwp =iwm+nstate*nfq
       iflx=iwp+nstate*nfq
  
-      call fillq(jrhof,vtrans,fatface(iwm),fatface(iwp))
+      call fillq(jdenf,vtrans,fatface(iwm),fatface(iwp))
       call fillq(jux, vx,    fatface(iwm),fatface(iwp))
       call fillq(juy, vy,    fatface(iwm),fatface(iwp))
       call fillq(juz, vz,    fatface(iwm),fatface(iwp))
@@ -1008,7 +1008,7 @@ C> @}
          call copy(ny,uny(1,1,f,e),nxz)
          call copy(nz,unz(1,1,f,e),nxz)
 
-         call copy(rl,wminus(1,f,e,jrhof),nxz)
+         call copy(rl,wminus(1,f,e,jdenf),nxz)
 
          if(if3d) then
             call vdot3(ul,wminus(1,f,e,jux),wminus(1,f,e,juy),
@@ -1041,7 +1041,7 @@ C> @}
          call copy(al,wminus(1,f,e,jsnd),nxz)
          call copy(el,wminus(1,f,e,jcpf),nxz)
 
-         call copy(rr,wplus(1,f,e,jrhof),nxz)
+         call copy(rr,wplus(1,f,e,jdenf),nxz)
          call copy(pr,wplus(1,f,e,jpr),nxz)
          call copy(tr,wplus(1,f,e,jthm),nxz)
          call copy(ar,wplus(1,f,e,jsnd),nxz)

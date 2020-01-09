@@ -56,7 +56,7 @@ C> conserved unknowns U
 ! now mass-specific
          call invcol2(energy,u(1,1,1,irg,e),nxyz)
 ! don't forget to get density where it belongs
-         call invcol3(vtrans(1,1,1,e,jrho),u(1,1,1,irg,e),phig(1,1,1,e),
+         call invcol3(vtrans(1,1,1,e,jden),u(1,1,1,irg,e),phig(1,1,1,e),
      >                nxyz)
 ! JH020718 long-overdue sanity checks
          emin=vlmin(energy,nxyz)
@@ -145,7 +145,7 @@ c-----------------------------------------------------------------------
 !        varsic(eqnum)=u(ix,iy,iz,eqnum,e)  
 !     enddo
       phi  = phig  (ix,iy,iz,e)
-      rho  = vtrans(ix,iy,iz,e,jrho)
+      rho  = vtrans(ix,iy,iz,e,jden)
       pres = pr    (ix,iy,iz,e)
       if (rho.ne.0) then
          cv   = vtrans(ix,iy,iz,e,jcv)/rho

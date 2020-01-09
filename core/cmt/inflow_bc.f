@@ -81,7 +81,7 @@ c                                     !     ux,uy,uz
      >                       ,molarmass,rho,rhou,rhov,rhow,rhob,rhoub
      >                       ,rhovb,rhowb,rhoeb,pres,asnd,temp)
          
-         wbc(l,jrho) = rhob
+         wbc(l,jden) = rhob
          wbc(l,jux)  = ux
          wbc(l,juy)  = uy
          wbc(l,juz)  = uz
@@ -141,7 +141,7 @@ C> Hartmann & Houston (2006). A poor default.
          wm(iuz,l)=vz(ix,iy,iz,e)
          wm(ipr,l)=pr(ix,iy,iz,e)
          wm(ithm,l)=t(ix,iy,iz,e,1)
-         wm(irho,l)=vtrans(ix,iy,iz,e,jrho)
+         wm(irho,l)=vtrans(ix,iy,iz,e,jden)
          wm(isnd,l)=csound(ix,iy,iz,e)
          wm(iph,l)=phig(ix,iy,iz,e)
 

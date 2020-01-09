@@ -53,7 +53,7 @@ C> Hartmann & Houston (2006). A poor default.
          wm(iuz,l)=vz(ix,iy,iz,e)
          wm(ipr,l)=pr(ix,iy,iz,e)
          wm(ithm,l)=t(ix,iy,iz,e,1)
-         wm(irho,l)=vtrans(ix,iy,iz,e,jrho)
+         wm(irho,l)=vtrans(ix,iy,iz,e,jden)
          wm(isnd,l)=csound(ix,iy,iz,e)
          wm(iph,l)=phig(ix,iy,iz,e)
 
@@ -75,7 +75,7 @@ C> Hartmann & Houston (2006). A poor default.
             wp(ipr,l)  = pres ! userbc should have set this to pinfty
             wp(isnd,l) = asnd ! userbc should have set this to a(pinfty,rho-)
             wp(ithm,l) = temp   ! userbc should have set this to T(pinfty,rho-)
-!           up(5,l)=wm(jrho,l)*e_internal ! userbc plz set e_internal(temp)
+!           up(5,l)=wm(jden,l)*e_internal ! userbc plz set e_internal(temp)
             up(5,l)=e_internal ! here AND ONLY HERE is e_internal density-weighted
      >          +0.5*wm(irho,l)*(wm(iux,l)**2+wm(iuy,l)**2+wm(iuz,l)**2)
             up(5,l)=up(5,l)*wm(iph,l)
@@ -152,7 +152,7 @@ c        fs = 0.0
          call BcondOutflowPerf(idbc,pres,sxn,syn,szn,cp,molarmass,
      >                         rho,rhou,rhov,rhow,rhoe,pl,
      >                         rhob,rhoub,rhovb,rhowb,rhoeb )
-         wbc(l,f,e,jrho)=rhob
+         wbc(l,f,e,jden)=rhob
          wbc(l,f,e,jux)=rhoub/rhob
          wbc(l,f,e,juy)=rhovb/rhob
          wbc(l,f,e,juz)=rhowb/rhob

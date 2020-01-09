@@ -443,10 +443,10 @@ C> @}
 !-----------------------------------------------------------------------
 
 ! mass. scrF={{rho}}{{u}}, scrG={{rho}}{{v}}, scrH={{rho}}{{w}}
-      call col3(scrf,z(1,jrhof),z(1,jux),nf)
-      call col3(scrg,z(1,jrhof),z(1,juy),nf)
+      call col3(scrf,z(1,jdenf),z(1,jux),nf)
+      call col3(scrg,z(1,jdenf),z(1,juy),nf)
       if (if3d) then
-         call col3(scrh,z(1,jrhof),z(1,juz),nf)
+         call col3(scrh,z(1,jdenf),z(1,juz),nf)
          call vdot3(fdot,scrf,scrg,scrh,nx,ny,nz,nf)
       else
          call vdot2(fdot,scrf,scrg,nx,ny,nf)
@@ -509,12 +509,12 @@ C> @}
 ! Routine to convert primitive variables on face to parameter vector for
 ! entropy-stable numerical fluxes consistent with volume fluxes.
 ! converts U5=phi*rho*E on faces to E=e+1/2*ui*ui for Kennedy-Gruber fluxes
-! consider putting indices for quantities (ju5, jrho, etc.) in the argument
+! consider putting indices for quantities (ju5, jden, etc.) in the argument
 ! list instead of including CMTDATA
       include 'SIZE'
       include 'CMTDATA'
       real fatface(nf,ns)
-      call invcol2(fatface(1,ju5),fatface(1,jrhof),nf)
+      call invcol2(fatface(1,ju5),fatface(1,jdenf),nf)
       call invcol2(fatface(1,ju5),fatface(1,jph),nf)
       return
       end
@@ -596,9 +596,9 @@ C> @}
             jal(1)=unx(i,1,f,e)
             jal(2)=uny(i,1,f,e)
             if (if3d) jal(3)=unz(i,1,f,e)
-            ul(1)=wminus(i,f,e,jrhof)
+            ul(1)=wminus(i,f,e,jdenf)
             call rzero(ul(2),toteq-1)
-            ur(1)=wplus(i,f,e,jrhof)
+            ur(1)=wplus(i,f,e,jdenf)
             call rzero(ur(2),toteq-1)
             wl(1)=wminus(i,f,e,jux)
             wl(2)=wminus(i,f,e,juy)

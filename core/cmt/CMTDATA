@@ -88,8 +88,8 @@ c---------------------------------------------------------------------
      $                 ,t0in,p0in,asnd,rgas,cp,mu,lambda,molarmass
 ! let kond=udiff
 ! VTRANS indices
-      integer jrho,jcp,jcv
-      parameter (jrho=1) ! better always be 1
+      integer jden,jcp,jcv
+      parameter (jden=1) ! better always be 1
       parameter (jen =2) ! internal energy
       parameter (jcp =3) ! rho*cp ! Really only need one of these, not both
       parameter (jcv =4) ! rho*cv ! Really only need one of these, not both
