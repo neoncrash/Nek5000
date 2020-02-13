@@ -114,12 +114,14 @@ c---------------------------------------------------------------------
 
       integer jcvf, jcpf, jmuf, 
      $        jkndf, jlamf, ju1, ju2, ju3, ju4
-      parameter (jcvf=1)     ! rho*cv
-      parameter (jcpf=1)    ! rho*cp
-      parameter (jmuf=1)    ! mu
-      parameter (jkndf=1)   ! K
-      parameter (jlamf=1)   ! lambda
-!     parameter (ju1=1)   ! U1
-!     parameter (iu2=1)   ! U2
-!     parameter (ju3=1)   ! U3
-!     parameter (ju4=1)   ! U4
+!      parameter (jcvf=1)     ! rho*cv
+!      parameter (jcpf=1)    ! rho*cp
+!      parameter (jmuf=1)    ! mu
+!      parameter (jkndf=1)   ! K
+!      parameter (jlamf=1)   ! lambda
+!NEED TO MAKE SURE IF THESE ARE STILL NEEDED
+
+!      parameter (ju1=1)   ! U1
+!      parameter (ju2=1)   ! U2
+!      parameter (ju3=1)   ! U3
+!      parameter (ju4=1)   ! U4

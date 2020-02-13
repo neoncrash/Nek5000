@@ -180,22 +180,102 @@ C> Convective volume terms formed and differentiated^T here
       include 'GEOM'
       integer e,eq
 
-      n=3*lx1*ly1*lz1*toteq
+      n=3*lxd*lyd*lzd*toteq
 
       call rzero(convh,n)
-      call evaluate_aliased_conv_h(e)
-      do eq=1,toteq
-      call contravariant_flux(totalh(1,1,eq),convh(1,1,eq),rx(1,1,e),1)
-      enddo
+
+      if (lxd.gt.lx1) then
+         call evaluate_dealiased_conv_h(e,eq)
+         call copy(totalh,convh,n)
+         call fluxdiv_dealiased_weak_chain(e,eq)
+      else
+
+       call evaluate_aliased_conv_h(e)
+       do eq=1,toteq
+       call contravariant_flux(totalh(1,1,eq),convh(1,1,eq),rx(1,1,e),1)
+       enddo
 
 !     call fluxdiv_2point_scr(res1,totalh,e,rx(1,1,e))
 !     call fluxdiv_2point_noscr(res1,totalh,e,rx(1,1,e))
 ! two-point, KEP/EC
-      call fluxdiv_2point_noscr(res1,totalh,e,rx(1,1,e))
-
+       call fluxdiv_2point_noscr(res1,totalh,e,rx(1,1,e))
+      endif  
       return
       end
 C> @}
+C> Convective pointwise flux function \f$\mathbf{H}^c\f$ on fine grid.
+      subroutine evaluate_dealiased_conv_h(e,eq)
+! computed as products between primitive variables and conserved variables.
+! if you want to write rho u_i u_j as (rho u_i) (rho u_j) (rho^{-1}), this
+! is the place to do it
+
+!Comment by BAD Feb 6th 2020, This routine still assumes toteq is 5. ie 
+!the energy equation is the 5th Will need to change. Alot of indicis 
+!for convh are explicitly set with this in mind. This will also have to 
+!change. The variable eq can be used to make the code more versitile 
+!but the "if" statments will have to change and the add2col2 call that
+!uses eq twice as an indici
+      include  'SIZE'
+      include  'SOLN'
+      include  'DEALIAS'
+      include  'CMTDATA'
+      include  'INPUT'
+     
+      integer  e,eq
+
+      parameter (ldd=lxd*lyd*lzd)
+      common /ctmp1/ JIu1(ldd),JIu2(ldd)!,ur(ldd),us(ldd),ud(ldd),tu(ldd)
+      real JIu1,JIu2
+
+      n=lxd*lyd*lzd
+
+      if (eq .eq. 1) then ! convective flux of mass=rho u_j=U_{j+1}
+
+         do j=1,ldim
+            call intp_rstd(convh(1,j,eq),u(1,1,1,eq+j,e),lx1,lxd,if3d,0)
+         enddo
+
+      else
+
+c To be consistent with momentum equation, for mass balance flux vector is 
+c computed by multiplying rho by u_j
+         call intp_rstd(JIu1,phig(1,1,1,e),lx1,lxd,if3d,0)
+         call intp_rstd(JIu2,pr(1,1,1,e),lx1,lxd,if3d,0)
+
+         if (eq .lt. 5) then ! self-advection of rho u_i by rho u_i u_j
+
+            call intp_rstd(convh(1,1,eq),u(1,1,1,eq,e),lx1,lxd,if3d,0)
+            do j=2,ldim
+               call copy(convh(1,j,eq),convh(1,1,eq),n)
+            enddo
+            call col2(convh(1,1,eq),vxd(1,1,1,e),n)
+            call col2(convh(1,2,eq),vyd(1,1,1,e),n)
+            if (if3d) call col2(convh(1,3,eq),vzd(1,1,1,e),n)
+            call add2col2(convh(1,eq-1,eq),JIu1,JIu2,n)
+
+         elseif (eq .eq. 5) then
+
+            call intp_rstd(convh(1,1,eq),u(1,1,1,eq,e),lx1,lxd,if3d,0)
+            call add2col2(convh(1,1,eq),JIu1,JIu2,n)
+            do j=2,ldim
+               call copy(convh(1,j,eq),convh(1,1,eq),n)
+            enddo
+            call col2(convh(1,1,eq),vxd(1,1,1,e),n)
+            call col2(convh(1,2,eq),vyd(1,1,1,e),n)
+            call col2(convh(1,3,eq),vzd(1,1,1,e),n)
+
+         else
+            if(nio.eq.0) write(6,*) 'eq=',eq,'really must be <= 5'
+            if(nio.eq.0) write(6,*) 'aborting in evaluate_conv_h'
+            call exitt
+         endif
+
+      endif
+     
+      return
+      end
+
+
 
       subroutine fluxdiv_2point_slow(res,e,ja)
       include 'SIZE'

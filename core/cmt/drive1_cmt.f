@@ -171,6 +171,7 @@ C> Store it in res1
 
       if (lxd.gt.lx1) then
          call set_dealias_face
+         call set_dealias_rx
       else
          call cmt_metrics(istep)
 !         call set_alias_rx(istep)
@@ -265,7 +266,7 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
       dumchars='after_inviscid'
-!     call dumpresidue(dumchars,999)
+      call dumpresidue(dumchars,999)
 
 !     call gtu_wrapper(fatface) ! for penalty methods. not yet
 
@@ -307,7 +308,7 @@ C> for each equation (inner), one element at a time (outer)
       enddo
  
       dumchars='after_elm'
-!     call dumpresidue(dumchars,999)
+      call dumpresidue(dumchars,999)
 
 !      if (1.eq.2) then
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\right] dA\f$
@@ -327,8 +328,8 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\righ
       enddo
 
 
-!      call dumpresidue(dumchars,999)
-!      call exitt
+      call dumpresidue(dumchars,999)
+      call exitt
       return
       end
 !-----------------------------------------------------------------------

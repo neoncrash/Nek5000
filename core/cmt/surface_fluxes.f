@@ -907,7 +907,7 @@ C> @}
       call fillq(jph, phig,  fatface(iwm),fatface(iwp))
       call fillq(jcvf,vtrans(1,1,1,1,jcv),fatface(iwm),fatface(iwp))
       call fillq(jcpf,vtrans(1,1,1,1,jcp),fatface(iwm),fatface(iwp))
-!     call fillq(jen,vtrans(1,1,1,1,jen),fatface(iwm),fatface(iwp))
+!      call fillq(jen,vtrans(1,1,1,1,jen),fatface(iwm),fatface(iwp))
       call fillq(jenf,vtrans(1,1,1,1,jen),fatface(iwm),fatface(iwp))
       call fillq(jmuf, vdiff(1,1,1,1,jmu), fatface(iwm),fatface(iwp))
       call fillq(jkndf,vdiff(1,1,1,1,jknd),fatface(iwm),fatface(iwp))
@@ -924,9 +924,9 @@ C> @}
       call face_state_commo(fatface(iwm),fatface(iwp),nfq,nstate
      >                     ,dg_hndl)
       call InviscidBC(fatface(iwm),fatface(iwp),nstate)
-!     call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx)
-      call InviscidFluxRot(fatface(iwm),fatface(iwp),fatface(iflx)
-     >                 ,nstate,toteq)
+      call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx))
+!      call InviscidFluxRot(fatface(iwm),fatface(iwp),fatface(iflx)
+!     >                 ,nstate,toteq)
       return
       end
 
