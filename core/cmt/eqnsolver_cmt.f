@@ -185,7 +185,14 @@ C> Convective volume terms formed and differentiated^T here
       call rzero(convh,n)
 
       if (lxd.gt.lx1) then
+
+!Comment by BAD Feb 14. 2020: Conv_h storage has changed thus
+!evaluate_dealiased_conv_h must also change. For now simple eq loop
+!added. However probs should build it like Jason did in
+!evaulate_aliased_conv_h.
+         do eq=1,toteq 
          call evaluate_dealiased_conv_h(e,eq)
+         enddo 
          call copy(totalh,convh,n)
          call fluxdiv_dealiased_weak_chain(e,eq)
       else

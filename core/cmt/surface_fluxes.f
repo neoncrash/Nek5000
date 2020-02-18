@@ -908,6 +908,7 @@ C> @}
       call fillq(jcvf,vtrans(1,1,1,1,jcv),fatface(iwm),fatface(iwp))
       call fillq(jcpf,vtrans(1,1,1,1,jcp),fatface(iwm),fatface(iwp))
 !      call fillq(jen,vtrans(1,1,1,1,jen),fatface(iwm),fatface(iwp))
+!Comment by BAD Feb 14 2020: next line confirm if jen in vtrans is right
       call fillq(jenf,vtrans(1,1,1,1,jen),fatface(iwm),fatface(iwp))
       call fillq(jmuf, vdiff(1,1,1,1,jmu), fatface(iwm),fatface(iwp))
       call fillq(jkndf,vdiff(1,1,1,1,jknd),fatface(iwm),fatface(iwp))
@@ -923,8 +924,13 @@ C> @}
       enddo
       call face_state_commo(fatface(iwm),fatface(iwp),nfq,nstate
      >                     ,dg_hndl)
-      call InviscidBC(fatface(iwm),fatface(iwp),nstate)
-      call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx))
+
+!      call InviscidBC(fatface(iwm),fatface(iwp),nstate)
+      call InviscidBC(fatface(iflx))
+!Comment by BAD:quick test of inviscidFlux call
+!      call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx))
+      call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx),nstate
+     >                   ,toteq)
 !      call InviscidFluxRot(fatface(iwm),fatface(iwp),fatface(iflx)
 !     >                 ,nstate,toteq)
       return

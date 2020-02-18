@@ -25,16 +25,18 @@
       parameter (jsnd=7)     ! a
       parameter (jph =8)     ! phi_g
       parameter (jcvf=9)     ! rho*cv
-      parameter (jenf=10)    ! energy
-      parameter (jmuf=11)    ! mu
-      parameter (jkndf=12)   ! K
-      parameter (jlamf=13)   ! lambda
-      parameter (ju1=14)   ! U1
-      parameter (ju2=15)   ! U2
-      parameter (ju3=16)   ! U3
-      parameter (ju4=17)   ! U4
-      parameter (ju5=18)   ! U5
-      parameter (nqq=18)
+      parameter (jcpf=10)    ! rho*cp
+!jcpf was added to work with fillq dealiased will need to check if needed		
+      parameter (jenf=11)    ! energy
+      parameter (jmuf=12)    ! mu
+      parameter (jkndf=13)   ! K
+      parameter (jlamf=14)   ! lambda
+      parameter (ju1=15)   ! U1
+      parameter (ju2=16)   ! U2
+      parameter (ju3=17)   ! U3
+      parameter (ju4=18)   ! U4
+      parameter (ju5=19)   ! U5
+      parameter (nqq=19)
 
 
 
