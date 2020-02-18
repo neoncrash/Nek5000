@@ -13,6 +13,9 @@
 ! JH060418 dstrong is 2D with 1,1 and lx1,lx1 zeroed out. It
 !          is the natural form for two-point volume fluxes in
 !          strong form
+!COMMENT by BAD: FEB 18 2020. Added wghtc back in. Need to check
+! if w2m1 is still needed.
+
       real w2m1(lx1,lz1), wghtf(lxd*lzd), zptf(lxd), wgtf(lxd),
-     > dstrong(lx1,lx1),dstrongt(lx1,lx1)
-      common /facewz/ w2m1, wghtf, zptf, wgtf,dstrong,dstrongt
+     > dstrong(lx1,lx1),dstrongt(lx1,lx1), wghtc(lx1*lz1)
+      common /facewz/ w2m1, wghtf, zptf, wgtf,dstrong,dstrongt,wghtc

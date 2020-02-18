@@ -150,6 +150,17 @@ C> by nek5000
       call zwgl(zptf,wgtf,lxd)
 
       if (if3d) then
+!COMMENT by BAD: FEB 18 2020. Added more Metric Stuff to fixed merged
+!code
+
+         k=0
+         do j=1,ly1
+         do i=1,lx1
+         k=k+1
+         wghtc(k)=wxm1(i)*wzm1(j)
+         enddo
+         enddo
+
          k=0
          do j=1,lyd
          do i=1,lxd
@@ -158,6 +169,7 @@ C> by nek5000
          enddo
          enddo
       else
+         call copy(wghtc,wxm1,lx1)
          call copy(wghtf,wgtf,lxd)
       endif
 
