@@ -190,9 +190,7 @@ C> Convective volume terms formed and differentiated^T here
 !evaluate_dealiased_conv_h must also change. For now simple eq loop
 !added. However probs should build it like Jason did in
 !evaulate_aliased_conv_h.
-         do eq=1,toteq 
          call evaluate_dealiased_conv_h(e,eq)
-         enddo 
          call copy(totalh,convh,n)
          call fluxdiv_dealiased_weak_chain(e,eq)
       else
@@ -236,52 +234,91 @@ C> Convective pointwise flux function \f$\mathbf{H}^c\f$ on fine grid.
 
       n=lxd*lyd*lzd
 
-      if (eq .eq. 1) then ! convective flux of mass=rho u_j=U_{j+1}
-
-         do j=1,ldim
-            call intp_rstd(convh(1,j,eq),u(1,1,1,eq+j,e),lx1,lxd,if3d,0)
-         enddo
-
-      else
 
 c To be consistent with momentum equation, for mass balance flux vector is 
 c computed by multiplying rho by u_j
          call intp_rstd(JIu1,phig(1,1,1,e),lx1,lxd,if3d,0)
          call intp_rstd(JIu2,pr(1,1,1,e),lx1,lxd,if3d,0)
+!Put velocity here!
+         call intp_rstd(vxd,vx(1,1,1,e),lx1,lxd,if3d,0)
+         call intp_rstd(vyd,vy(1,1,1,e),lx1,lxd,if3d,0)
+         if (if3d) call intp_rstd(vzd,vz(1,1,1,e),lx1,lxd,if3d,0)
+!Mass
+      do j=1,ldim  
+         call intp_rstd(convh(1,j,1),u(1,1,1,j+1,e),lx1,lxd,if3d,0)
+      enddo  
+!MOM
+      do eq=2,ldim+1
+         call intp_rstd(convh(1,1,eq),u(1,1,1,eq,e),lx1,lxd,if3d,0)
+         do j=2,ldim
+            call copy(convh(1,j,eq),convh(1,1,eq),n)
+         enddo
+         call col2(convh(1,1,eq),vxd(1,1,1,e),n)
+         call col2(convh(1,2,eq),vyd(1,1,1,e),n)
+         if (if3d) call col2(convh(1,3,eq),vzd(1,1,1,e),n)
+         call add2col2(convh(1,eq-1,eq),JIu1,JIu2,n)  
+      enddo  
+!ENE
+      eq=toteq  
+      call intp_rstd(convh(1,1,eq),u(1,1,1,eq,e),lx1,lxd,if3d,0)
+      call add2col2(convh(1,1,eq),JIu1,JIu2,n)
+      do j=2,ldim
+         call copy(convh(1,j,eq),convh(1,1,eq),n)
+      enddo
+      call col2(convh(1,1,eq),vxd(1,1,1,e),n)
+      call col2(convh(1,2,eq),vyd(1,1,1,e),n)
+      if (if3d) call col2(convh(1,3,eq),vzd(1,1,1,e),n)
 
-         if (eq .lt. 5) then ! self-advection of rho u_i by rho u_i u_j
+      return 
+      end    
 
-            call intp_rstd(convh(1,1,eq),u(1,1,1,eq,e),lx1,lxd,if3d,0)
-            do j=2,ldim
-               call copy(convh(1,j,eq),convh(1,1,eq),n)
-            enddo
-            call col2(convh(1,1,eq),vxd(1,1,1,e),n)
-            call col2(convh(1,2,eq),vyd(1,1,1,e),n)
-            if (if3d) call col2(convh(1,3,eq),vzd(1,1,1,e),n)
-            call add2col2(convh(1,eq-1,eq),JIu1,JIu2,n)
-
-         elseif (eq .eq. 5) then
-
-            call intp_rstd(convh(1,1,eq),u(1,1,1,eq,e),lx1,lxd,if3d,0)
-            call add2col2(convh(1,1,eq),JIu1,JIu2,n)
-            do j=2,ldim
-               call copy(convh(1,j,eq),convh(1,1,eq),n)
-            enddo
-            call col2(convh(1,1,eq),vxd(1,1,1,e),n)
-            call col2(convh(1,2,eq),vyd(1,1,1,e),n)
-            call col2(convh(1,3,eq),vzd(1,1,1,e),n)
-
-         else
-            if(nio.eq.0) write(6,*) 'eq=',eq,'really must be <= 5'
-            if(nio.eq.0) write(6,*) 'aborting in evaluate_conv_h'
-            call exitt
-         endif
-
-      endif
-     
-      return
-      end
-
+!Comment by BAD Feb. 19 2020. Copy of old code for ref, will delete later
+!      if (eq .eq. 1) then ! convective flux of mass=rho u_j=U_{j+1}
+!
+!         do j=1,ldim
+!            call intp_rstd(convh(1,j,eq),u(1,1,1,eq+j,e),lx1,lxd,if3d,0)
+!         enddo
+!
+!      else
+!
+!c To be consistent with momentum equation, for mass balance flux vector is 
+!c computed by multiplying rho by u_j
+!         call intp_rstd(JIu1,phig(1,1,1,e),lx1,lxd,if3d,0)
+!         call intp_rstd(JIu2,pr(1,1,1,e),lx1,lxd,if3d,0)
+!
+!         if (eq .lt. 5) then ! self-advection of rho u_i by rho u_i u_j
+!
+!            call intp_rstd(convh(1,1,eq),u(1,1,1,eq,e),lx1,lxd,if3d,0)
+!            do j=2,ldim
+!               call copy(convh(1,j,eq),convh(1,1,eq),n)
+!            enddo
+!            call col2(convh(1,1,eq),vxd(1,1,1,e),n)
+!            call col2(convh(1,2,eq),vyd(1,1,1,e),n)
+!            if (if3d) call col2(convh(1,3,eq),vzd(1,1,1,e),n)
+!            call add2col2(convh(1,eq-1,eq),JIu1,JIu2,n)
+!
+!         elseif (eq .eq. 5) then
+!
+!            call intp_rstd(convh(1,1,eq),u(1,1,1,eq,e),lx1,lxd,if3d,0)
+!            call add2col2(convh(1,1,eq),JIu1,JIu2,n)
+!            do j=2,ldim
+!               call copy(convh(1,j,eq),convh(1,1,eq),n)
+!            enddo
+!            call col2(convh(1,1,eq),vxd(1,1,1,e),n)
+!            call col2(convh(1,2,eq),vyd(1,1,1,e),n)
+!            call col2(convh(1,3,eq),vzd(1,1,1,e),n)
+!
+!         else
+!            if(nio.eq.0) write(6,*) 'eq=',eq,'really must be <= 5'
+!            if(nio.eq.0) write(6,*) 'aborting in evaluate_conv_h'
+!            call exitt
+!         endif
+!
+!      endif
+!     
+!      return
+!      end
+!
 
 
       subroutine fluxdiv_2point_slow(res,e,ja)

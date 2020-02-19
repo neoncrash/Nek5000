@@ -156,8 +156,8 @@ C> by nek5000
          k=0
          do j=1,ly1
          do i=1,lx1
-         k=k+1
-         wghtc(k)=wxm1(i)*wzm1(j)
+            k=k+1
+            wghtc(k)=wxm1(i)*wzm1(j)
          enddo
          enddo
 
