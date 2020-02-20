@@ -225,7 +225,6 @@ C> Convective pointwise flux function \f$\mathbf{H}^c\f$ on fine grid.
       include  'DEALIAS'
       include  'CMTDATA'
       include  'INPUT'
-     
       integer  e,eq
 
       parameter (ldd=lxd*lyd*lzd)
@@ -240,9 +239,10 @@ c computed by multiplying rho by u_j
          call intp_rstd(JIu1,phig(1,1,1,e),lx1,lxd,if3d,0)
          call intp_rstd(JIu2,pr(1,1,1,e),lx1,lxd,if3d,0)
 !Put velocity here!
-         call intp_rstd(vxd,vx(1,1,1,e),lx1,lxd,if3d,0)
-         call intp_rstd(vyd,vy(1,1,1,e),lx1,lxd,if3d,0)
-         if (if3d) call intp_rstd(vzd,vz(1,1,1,e),lx1,lxd,if3d,0)
+         call intp_rstd(vxd(1,1,1,e),vx(1,1,1,e),lx1,lxd,if3d,0)
+         call intp_rstd(vyd(1,1,1,e),vy(1,1,1,e),lx1,lxd,if3d,0)
+         if (if3d) 
+     >    call intp_rstd(vzd(1,1,1,e),vz(1,1,1,e),lx1,lxd,if3d,0)
 !Mass
       do j=1,ldim  
          call intp_rstd(convh(1,j,1),u(1,1,1,j+1,e),lx1,lxd,if3d,0)
