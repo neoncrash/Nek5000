@@ -89,11 +89,21 @@ c compute_rhs_dt for the 5 conserved variables
          do e=1,nelt
             do eq=1,toteq
             do i=1,nxyz1
+
+        if (lxd.eq.lx1) then
 ! JH071218 res1 is premultiplied by B^{-1}
                u(i,1,1,eq,e) = tcoef(1,stage)*res3(i,1,1,eq,e)+
      >                         tcoef(2,stage)*u(i,1,1,eq,e)-
      >                         tcoef(3,stage)*res1(i,1,1,e,eq)
- 
+        else
+!SCAFF
+               u(i,1,1,eq,e) = bm1(i,1,1,e)*tcoef(1,stage)
+     >                     *res3(i,1,1,eq,e)+bm1(i,1,1,e)*
+     >                     tcoef(2,stage)*u(i,1,1,eq,e)-
+     >                     tcoef(3,stage)*res1(i,1,1,e,eq)
+               u(i,1,1,eq,e) = u(i,1,1,eq,e)/bm1(i,1,1,e)
+!END SCAFF 
+        endif
             enddo
             enddo
          enddo ! nelt
