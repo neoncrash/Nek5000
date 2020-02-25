@@ -89,11 +89,21 @@ c compute_rhs_dt for the 5 conserved variables
          do e=1,nelt
             do eq=1,toteq
             do i=1,nxyz1
+
+        if (lxd.eq.lx1) then
 ! JH071218 res1 is premultiplied by B^{-1}
                u(i,1,1,eq,e) = tcoef(1,stage)*res3(i,1,1,eq,e)+
      >                         tcoef(2,stage)*u(i,1,1,eq,e)-
      >                         tcoef(3,stage)*res1(i,1,1,e,eq)
- 
+        else
+!SCAFF
+               u(i,1,1,eq,e) = bm1(i,1,1,e)*tcoef(1,stage)
+     >                     *res3(i,1,1,eq,e)+bm1(i,1,1,e)*
+     >                     tcoef(2,stage)*u(i,1,1,eq,e)-
+     >                     tcoef(3,stage)*res1(i,1,1,e,eq)
+               u(i,1,1,eq,e) = u(i,1,1,eq,e)/bm1(i,1,1,e)
+!END SCAFF 
+        endif
             enddo
             enddo
          enddo ! nelt
@@ -171,6 +181,7 @@ C> Store it in res1
 
       if (lxd.gt.lx1) then
          call set_dealias_face
+         call set_dealias_rx
       else
          call cmt_metrics(istep)
 !         call set_alias_rx(istep)
@@ -264,8 +275,8 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
          ieq=(eq-1)*ndg_face+iflx
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
-      dumchars='after_inviscid'
-!     call dumpresidue(dumchars,999)
+!      dumchars='after_inviscid'
+!      call dumpresidue(dumchars,999)
 
 !     call gtu_wrapper(fatface) ! for penalty methods. not yet
 
@@ -306,8 +317,8 @@ C> for each equation (inner), one element at a time (outer)
          enddo
       enddo
  
-      dumchars='after_elm'
-!     call dumpresidue(dumchars,999)
+!      dumchars='after_elm'
+!      call dumpresidue(dumchars,999)
 
 !      if (1.eq.2) then
 C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\right] dA\f$
@@ -320,12 +331,13 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\righ
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
 !      endif
-      dumchars='end_of_rhs' !$add below lines 266-269
+!      dumchars='end_of_rhs' !$add below lines 266-269
 ! one last
+      if (lxd.eq.lx1) then  
       do eq=1,toteq
          call col2(res1(1,1,1,1,eq),jacmi,nelt*lx1*ly1*lz1)
       enddo
-
+      endif  
 
 !      call dumpresidue(dumchars,999)
 !      call exitt

@@ -388,7 +388,7 @@ C> @}
             call map_faced(pl,wminus(1,f,e,jpr),lx1,lxd,fdim,0)
             call map_faced(tl,wminus(1,f,e,jthm),lx1,lxd,fdim,0)
             call map_faced(al,wminus(1,f,e,jsnd),lx1,lxd,fdim,0)
-            call map_faced(el,wminus(1,f,e,jen),lx1,lxd,fdim,0)
+            call map_faced(el,wminus(1,f,e,jenf),lx1,lxd,fdim,0)
 
             call map_faced(rr,wplus(1,f,e,jdenf),lx1,lxd,fdim,0)
             call map_faced(ur,wplus(1,f,e,jux),lx1,lxd,fdim,0)
@@ -397,11 +397,11 @@ C> @}
             call map_faced(pr,wplus(1,f,e,jpr),lx1,lxd,fdim,0)
             call map_faced(tr,wplus(1,f,e,jthm),lx1,lxd,fdim,0)
             call map_faced(ar,wplus(1,f,e,jsnd),lx1,lxd,fdim,0)
-            call map_faced(er,wplus(1,f,e,jen),lx1,lxd,fdim,0)
+            call map_faced(er,wplus(1,f,e,jenf),lx1,lxd,fdim,0)
 
             call map_faced(phl,wminus(1,f,e,jph),lx1,lxd,fdim,0)
-
-            call invcol3(jaco_c,area(1,1,f,e),w2m1,nxz)
+!COMMENT by BAD: FEB 18 2020. Changed w2m1 to wghtc. Metrics stuff
+            call invcol3(jaco_c,area(1,1,f,e),wghtc,nxz)
             call map_faced(jaco_f,jaco_c,lx1,lxd,fdim,0) 
             call col2(jaco_f,wghtf,nxzd)
          else
@@ -417,7 +417,7 @@ C> @}
             call copy(pl,wminus(1,f,e,jpr),nxz)
             call copy(tl,wminus(1,f,e,jthm),nxz)
             call copy(al,wminus(1,f,e,jsnd),nxz)
-            call copy(el,wminus(1,f,e,jcpf),nxz)
+            call copy(el,wminus(1,f,e,jenf),nxz)
 
             call copy(rr,wplus(1,f,e,jdenf),nxz)
             call copy(ur,wplus(1,f,e,jux),nxz)
@@ -426,11 +426,11 @@ C> @}
             call copy(pr,wplus(1,f,e,jpr),nxz)
             call copy(tr,wplus(1,f,e,jthm),nxz)
             call copy(ar,wplus(1,f,e,jsnd),nxz)
-            call copy(er,wplus(1,f,e,jen),nxz)
+            call copy(er,wplus(1,f,e,jenf),nxz)
 
             call copy(phl,wminus(1,f,e,jph),nxz)
-
-            call copy(jaco_f,jface(1,1,f,e),nxz) 
+!COMMENT by BAD: FEB 18 2020. Changed jface to area. Metrics Stuff
+            call copy(jaco_f,area(1,1,f,e),nxz) 
          endif
          call rzero(fs,nxzd) ! moving grid stuff later
 
@@ -907,7 +907,8 @@ C> @}
       call fillq(jph, phig,  fatface(iwm),fatface(iwp))
       call fillq(jcvf,vtrans(1,1,1,1,jcv),fatface(iwm),fatface(iwp))
       call fillq(jcpf,vtrans(1,1,1,1,jcp),fatface(iwm),fatface(iwp))
-!     call fillq(jen,vtrans(1,1,1,1,jen),fatface(iwm),fatface(iwp))
+!      call fillq(jen,vtrans(1,1,1,1,jen),fatface(iwm),fatface(iwp))
+!Comment by BAD Feb 14 2020: next line confirm if jen in vtrans is right
       call fillq(jenf,vtrans(1,1,1,1,jen),fatface(iwm),fatface(iwp))
       call fillq(jmuf, vdiff(1,1,1,1,jmu), fatface(iwm),fatface(iwp))
       call fillq(jkndf,vdiff(1,1,1,1,jknd),fatface(iwm),fatface(iwp))
@@ -923,10 +924,15 @@ C> @}
       enddo
       call face_state_commo(fatface(iwm),fatface(iwp),nfq,nstate
      >                     ,dg_hndl)
-      call InviscidBC(fatface(iwm),fatface(iwp),nstate)
-!     call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx)
-      call InviscidFluxRot(fatface(iwm),fatface(iwp),fatface(iflx)
-     >                 ,nstate,toteq)
+
+!       call InviscidBC(fatface(iwm),fatface(iwp),nstate)
+       call InviscidBC(fatface(iflx))
+!Comment by BAD:quick test of inviscidFlux call
+!       call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx))
+      call InviscidFlux(fatface(iwm),fatface(iwp),fatface(iflx),nstate
+     >                   ,toteq)
+!      call InviscidFluxRot(fatface(iwm),fatface(iwp),fatface(iflx)
+!     >                 ,nstate,toteq)
       return
       end
 
