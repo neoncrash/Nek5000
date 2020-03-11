@@ -176,7 +176,81 @@ C> by nek5000
       return
       end
 !-----------------------------------------------------------------------
+C> @{
+C> Keep chain-rule metrics as a stop-gap until cmt_metrics works on
+Cdeformed
+C> elements. Also fills jface with jacobian of mesh on mesh faces, w2m1
+C> with quadrature weights, and dstrong with derivative matrix and
+C> appropriate weights for strong-form surface integrals
+      subroutine chainrule_metrics(istp)
+      include 'SIZE'
+      include 'CMTDATA'
+      include 'DG'
+      include 'WZ'
+      include 'INPUT'
+      include 'DXYZ'
+      include 'GEOM'
+      parameter (ldgmax=max(ngrefmax,lx1)) ! ngrefmax from CMTSIZE
+      parameter (ldg=ldgmax**3,lwkd=4*ldgmax*ldgmax)
+      common /dgradl/d(ldg),dt(ldg),dg(ldg),dgt(ldg),jgl(ldg),jgt(ldg)
+     > ,wkd(lwkd)
+      real jgl,jgt
+      integer f,e
+      integer ilstep
+      save    ilstep
+      data    ilstep /-1/
 
+      if (.not.ifgeom.and.ilstep.gt.1) return  ! already computed
+      if (ifgeom.and.ilstep.eq.istp)  return  ! already computed
+      ilstep = istp
+      if (nio .eq. 0) write(6,*) 'welcome to chainrule'
+      nxz=lx1*lz1
+      nxyz=lx1*ly1*lz1
+      do j=1,lz1
+         do i=1,lx1
+            w2m1(i,j)=wxm1(i)*wzm1(j)
+         enddo
+      enddo
+
+      wght=1.0/wxm1(1) ! MAKE SURE wxm1(lx1)=wxm1(1)!!!!
+
+      call get_dgll_ptr(ilx1,lx1,lx1)
+
+! JH060418 strong-form derivative matrix for 2-point fluxes + surface
+      call copy (dstrong,d(ilx1),lx1**2)
+      call cmult(dstrong,2.0,    lx1**2)
+      dstrong(1,1)     = 2.0*d(ilx1)         +1.0/wxm1(1)
+      dstrong(lx1,lx1) = 2.0*d(ilx1+lx1**2-1)-1.0/wxm1(lx1)
+      call transpose(dstrongt,lx1,dstrong,lx1)
+
+      do e=1,nelt
+         if (if3d) then
+            call copy(rx(1,1,e),rxm1(1,1,1,e),nxyz)
+            call copy(rx(1,2,e),rym1(1,1,1,e),nxyz)
+            call copy(rx(1,3,e),rzm1(1,1,1,e),nxyz)
+            call copy(rx(1,4,e),sxm1(1,1,1,e),nxyz)
+            call copy(rx(1,5,e),sym1(1,1,1,e),nxyz)
+            call copy(rx(1,6,e),szm1(1,1,1,e),nxyz)
+            call copy(rx(1,7,e),txm1(1,1,1,e),nxyz)
+            call copy(rx(1,8,e),tym1(1,1,1,e),nxyz)
+            call copy(rx(1,9,e),tzm1(1,1,1,e),nxyz)
+         else
+            call copy(rx(1,1,e),rxm1(1,1,1,e),nxyz) 
+            call copy(rx(1,2,e),rym1(1,1,1,e),nxyz) 
+            call copy(rx(1,3,e),sxm1(1,1,1,e),nxyz) 
+            call copy(rx(1,4,e),sym1(1,1,1,e),nxyz) 
+         endif ! if3d
+         do f=1,2*ldim
+            call invcol3(jface(1,1,f,e),area(1,1,f,e),w2m1,nxz)
+            call cmult(jface(1,1,f,e),wght,nxz)
+         enddo
+      enddo
+
+      return
+      end
+C> @}
+
+!-----------------------------------------------------------------------
       subroutine set_alias_rx(istp)
 ! note that set_alias_rx will be called only when lxd = lx1
       include 'SIZE'
@@ -270,6 +344,7 @@ c           Interpolate z+ and z- into fine mesh, translate to r-s-t coords
       include 'MASS'
       include 'CMTDATA'
 
+      parameter (ldgmax=max(ngrefmax,lx1)) !ngrefmax from CMTSIZE  
       parameter (ldg=lx1**3,lwkd=4*lx1*lx1)
       common /dgradl/d(ldg),dt(ldg),dg(ldg),dgt(ldg),jgl(ldg),jgt(ldg)
      > ,wkd(lwkd)
@@ -299,7 +374,34 @@ c           Interpolate z+ and z- into fine mesh, translate to r-s-t coords
       if (ifgeom.and.ilstep.eq.istp)  return  ! already computed
       ilstep = istp
       write(6,*) 'welcome to cmt_metrics'
+!Comment by BAD Mar. 9 2020. Kludge to get deformed elements. Def no
+!Free stream preserving. Will need to add in. Since I'm commenting out
+!all the code I'm keeping an if statment so we can bring back what we
+!need. The if statement will be denoted with BFLAG
+!      nxyz = lx1*ly1*lz1
+!      if (if3d) then
+!        do e=1,nelv
+!            call copy(rx(1,1,e),rxm1(1,1,1,e),nxyz)
+!            call copy(rx(1,2,e),rym1(1,1,1,e),nxyz)
+!            call copy(rx(1,3,e),rzm1(1,1,1,e),nxyz)
+!            call copy(rx(1,4,e),sxm1(1,1,1,e),nxyz)
+!            call copy(rx(1,5,e),sym1(1,1,1,e),nxyz)
+!            call copy(rx(1,6,e),szm1(1,1,1,e),nxyz)
+!            call copy(rx(1,7,e),txm1(1,1,1,e),nxyz)
+!            call copy(rx(1,8,e),tym1(1,1,1,e),nxyz)
+!            call copy(rx(1,9,e),tzm1(1,1,1,e),nxyz)    
+!        enddo
+!      else
+!         do e=1,nelv
+!            call copy(rx(1,1,e),rxm1(1,1,1,e),nxyz)
+!            call copy(rx(1,2,e),rym1(1,1,1,e),nxyz)
+!            call copy(rx(1,3,e),sxm1(1,1,1,e),nxyz)
+!            call copy(rx(1,4,e),sym1(1,1,1,e),nxyz)
+!         enddo
+!      endif          
+!
 
+!      if (1.eq.2) then !BFLAG  
       n=ngeoref**ldim
       nxyz=lx1*ly1*lz1
 
@@ -547,7 +649,7 @@ c           Interpolate z+ and z- into fine mesh, translate to r-s-t coords
       enddo ! e=1,nelt
 
       call invers2(jacmi,jacm1,nxyz*nelt)
-
+!      endif !BFLAG  
       return
       end
 

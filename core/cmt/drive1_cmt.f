@@ -183,7 +183,8 @@ C> Store it in res1
          call set_dealias_face
          call set_dealias_rx
       else
-         call cmt_metrics(istep)
+!         call cmt_metrics(istep)
+         call chainrule_metrics(istep)
 !         call set_alias_rx(istep)
       endif
 

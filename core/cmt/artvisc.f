@@ -116,6 +116,8 @@
             enddo
             !res2 = (div u)
             !apply heavy function and its consequences
+!            t(ix,iy,iz,e,7) = res2(ix,iy,iz,e,2)!Debug    
+
             if (res2(ix,iy,iz,e,2) .GE. 0) then
                     res2(ix,iy,iz,e,2) = 0
             else
@@ -138,7 +140,7 @@
             do k=1,nij
                res2(ix,iy,iz,e,1)=res2(ix,iy,iz,e,1)+(sij(l,k,e)**2)
             enddo
-!            t(ix,iy,iz,e,6) = SQRT(ABS(res2(ix,iy,iz,e,1)))    
+!            t(ix,iy,iz,e,8) = SQRT(ABS(res2(ix,iy,iz,e,1)))    
             res2(ix,iy,iz,e,1) = SQRT(ABS(res2(ix,iy,iz,e,1))) 
      >                                  *vtrans(ix,iy,iz,e,jden)
      >                                          *e_dist**2
@@ -167,7 +169,7 @@
                do k=1,ldim
                   res2(ix,iy,iz,e,3)=res2(ix,iy,iz,e,3)+0.5*sij(l,k,e)
                enddo
-!               t(ix,iy,iz,e,7) = ABS(res2(ix,iy,iz,e,3)) !for debug
+!               t(ix,iy,iz,e,9) = ABS(res2(ix,iy,iz,e,3)) !for debug
                res2(ix,iy,iz,e,3) = (ABS(res2(ix,iy,iz,e,3)) /
      >              (t(ix,iy,iz,e,1))**2) * vtrans(ix,iy,iz,e,jden) 
      >                * (e_dist**3) * csound(ix,iy,iz,e)**3 

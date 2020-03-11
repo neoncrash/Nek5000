@@ -488,7 +488,7 @@ C> @}
       call add2col2(scrg,z(1,juy),z(1,jpr),nf)
       if (if3d) then
          call col2(scrh,z(1,ju5),nf)
-         call add2(scrh,z(1,juz),z(1,jpr),nf)
+         call add2col2(scrh,z(1,juz),z(1,jpr),nf)
          call vdot3(fdot,scrf,scrg,scrh,nx,ny,nz,nf)
       else
          call vdot2(fdot,scrf,scrg,nx,ny,nf)

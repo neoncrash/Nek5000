@@ -58,6 +58,12 @@ C> Determining rind state for Dirichlet boundary conditions
               call wallbc_inviscid(f,e,wminus,wplus,uminus,uplus,nparm)
             endif 
 
+
+!Comment by BAD Feb 26,2020. non-P BC is broken for dealaised. Attempt
+!to fix here.
+
+        if (lxd .eq.lx1) then 
+
 ! convert surface normals into metric terms for two-point fluxes (just
 ! face Jacobian times normal vector)
 
@@ -97,11 +103,10 @@ C> Determining rind state for Dirichlet boundary conditions
             flux(i,f,e,eq)=flux(i,f,e,eq)+flx(eq,i)*jface(i,1,f,e)
             enddo
             enddo
-
+         endif!lxd.eq.lx1 SCAFF
          endif
       enddo
       enddo
-
 C> @}
       return
       end

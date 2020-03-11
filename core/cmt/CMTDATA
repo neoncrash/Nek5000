@@ -94,7 +94,7 @@ c---------------------------------------------------------------------
       parameter (jcp =3) ! rho*cp ! Really only need one of these, not both
       parameter (jcv =4) ! rho*cv ! Really only need one of these, not both
 ! indices in VDIFF
-      integer imu, iknd, ilam, inus
+      integer jmu, jknd, jlam, jnus
       parameter (jmu =1) ! viscosity
       parameter (jknd=2) ! thermal conductivity
       parameter (jlam=3) ! lambda, 2nd viscosity
