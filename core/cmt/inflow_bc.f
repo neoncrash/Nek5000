@@ -176,7 +176,7 @@ C> Hartmann & Houston (2006). A poor default.
 
 ! userbc should have set e_internal to Dirichlet state (supersonic) or p-/(gm-1)
 ! here and only here is e_internal density-weighted.
-         up(5,l) = e_internal+0.5*rho*(ux**2+uy**2+uz**2)
+         up(5,l) = rho*e_internal+0.5*rho*(ux**2+uy**2+uz**2)
          up(5,l) = up(5,l)*phi
 
       enddo

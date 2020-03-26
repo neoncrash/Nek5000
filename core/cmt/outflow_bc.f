@@ -76,7 +76,7 @@ C> Hartmann & Houston (2006). A poor default.
             wp(isnd,l) = asnd ! userbc should have set this to a(pinfty,rho-)
             wp(ithm,l) = temp   ! userbc should have set this to T(pinfty,rho-)
 !           up(5,l)=wm(jden,l)*e_internal ! userbc plz set e_internal(temp)
-            up(5,l)=e_internal ! here AND ONLY HERE is e_internal density-weighted
+            up(5,l)=rho*e_internal ! here AND ONLY HERE is e_internal density-weighted
      >          +0.5*wm(irho,l)*(wm(iux,l)**2+wm(iuy,l)**2+wm(iuz,l)**2)
             up(5,l)=up(5,l)*wm(iph,l)
 
