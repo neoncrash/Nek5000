@@ -31,6 +31,26 @@ c     Solve the Euler equations
       nfldpart = ldim*npart
 
       if(istep.eq.1) then
+!Comment by BAD Mar 27 2020. Testing of removal of eps in normal vector
+!Geometry Could affect walls but for now uploading fix of LLF
+      if(1.eq.2) then  
+        nface=2*ldim
+      do e=1,nelt
+      do f=1,nface
+      do i=1,lx1
+
+      if (unx(i,1,f,e).ne. -1 .and. unx(i,1,f,e) .ne. 1) then
+        unx(i,1,f,e) = 0
+       endif
+
+       if (uny(i,1,f,e).ne. -1 .and. uny(i,1,f,e) .ne. 1) then
+        uny(i,1,f,e) = 0
+       endif
+        enddo
+        enddo
+        enddo
+        endif
+
          time4av=.true.
          call compute_mesh_h(meshh,xm1,ym1,zm1)
          call compute_grid_h(gridh,xm1,ym1,zm1)

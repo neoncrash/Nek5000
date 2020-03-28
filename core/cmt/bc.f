@@ -97,7 +97,7 @@ C> Determining rind state for Dirichlet boundary conditions
 
 ! stabilization flux
             call sequential_flux(flx,wminus,wplus,uminus,uplus,jaminus,
-     >                           japlus,llf_euler,toteq,nxz)
+     >                           japlus,llf_euler,nparm,nxz)
             do eq=1,toteq
             do i=1,nxz
             flux(i,f,e,eq)=flux(i,f,e,eq)+flx(eq,i)*jface(i,1,f,e)
