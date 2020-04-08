@@ -33,18 +33,18 @@ c     Solve the Euler equations
       if(istep.eq.1) then
 !Comment by BAD Mar 27 2020. Testing of removal of eps in normal vector
 !Geometry Could affect walls but for now uploading fix of LLF
-      if(1.eq.2) then  
+      if(1.eq.1) then  
         nface=2*ldim
       do e=1,nelt
       do f=1,nface
       do i=1,lx1
 
       if (unx(i,1,f,e).ne. -1 .and. unx(i,1,f,e) .ne. 1) then
-        unx(i,1,f,e) = 0
+!        unx(i,1,f,e) = 0
        endif
 
        if (uny(i,1,f,e).ne. -1 .and. uny(i,1,f,e) .ne. 1) then
-        uny(i,1,f,e) = 0
+!        uny(i,1,f,e) = 0
        endif
         enddo
         enddo
@@ -299,9 +299,8 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
          ieq=(eq-1)*ndg_face+iflx
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
-!      dumchars='after_inviscid'
+      dumchars='after_inviscid'
 !      call dumpresidue(dumchars,999)
-
 !     call gtu_wrapper(fatface) ! for penalty methods. not yet
 
 
@@ -341,7 +340,7 @@ C> for each equation (inner), one element at a time (outer)
          enddo
       enddo
  
-!      dumchars='after_elm'
+      dumchars='after_elm'
 !      call dumpresidue(dumchars,999)
 
 !      if (1.eq.2) then
@@ -362,7 +361,7 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\righ
          call col2(res1(1,1,1,1,eq),jacmi,nelt*lx1*ly1*lz1)
       enddo
       endif  
-
+      dumchars='after_jacmi'  
 !      call dumpresidue(dumchars,999)
 !      call exitt
       return
