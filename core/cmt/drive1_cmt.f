@@ -51,7 +51,6 @@ c     Solve the Euler equations
         enddo
         endif
 
-         time4av=.true.
          call compute_mesh_h(meshh,xm1,ym1,zm1)
          call compute_grid_h(gridh,xm1,ym1,zm1)
          call cmt_ics
@@ -143,8 +142,6 @@ c compute_rhs_dt for the 5 conserved variables
 !        call compute_primitive_vars(1)
 
       enddo ! RK stage loop
-
-!     time4av=.not.time4av
 
       ftime = ftime + dnekclock() - ftime_dum
 
@@ -254,7 +251,7 @@ C> Store it in res1
                 if (time.ge.time_iotarg) dumped_stage = .TRUE.
          endif        
 
-         if (dumped_stage.eq..TRUE..or.istep.eq.1)then
+         if (dumped_stage.or.istep.eq.1)then
 !        if (mod(istep,iostep).eq.0.or.istep.eq.1)then
             call out_fld_nek ! solution checkpoint for restart
 ! T2 S1 rho

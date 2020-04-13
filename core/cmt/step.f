@@ -85,7 +85,7 @@ C> @file step.f time stepping and mesh spacing routines
 !      endif
 !BAD Jul022019 Check if we met dumped at our time goal, if so push the 
 ! goal to the next physical time dump
-      if (dumped_stage .eq. .TRUE.)then
+      if (dumped_stage)then
         time_iotarg = time_cmt + timeio
         dumped_stage = .FALSE.
         ifoutfld=.true.

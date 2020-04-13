@@ -33,7 +33,7 @@ C> wrapper for other BC routines. Just one for now. More to come.
       integer i,bcOptType
       real wminus(lx1*lz1,2*ldim,nelt,nvar) ! intent(in)
       real wbc(lx1*lz1,nvar) ! intent(in)
-      real snx,sny,snz,rhou,rhov,rhow,pl,rhob,rhoub,rhovb,rhowb
+      real rhou,rhov,rhow,pl,rhob,rhoub,rhovb,rhowb
      >     ,rhoeb, mach
 
       nxz=lx1*lz1
@@ -131,8 +131,11 @@ C> Hartmann & Houston (2006). A poor default.
       do ix=i0,i1
          call nekasgn(ix,iy,iz,e)
          call cmtasgn(ix,iy,iz,e)
-         call userbc (ix,iy,iz,f,ieg) ! get rho, molarmass, ux, uy and uz
          l=l+1
+         snx  = unx(l,1,f,e) ! I don't know how to do this in cmtasgn
+         sny  = uny(l,1,f,e)
+         snz  = unz(l,1,f,e)
+         call userbc (ix,iy,iz,f,ieg) ! get rho, molarmass, ux, uy and uz
          do eq=1,toteq
             um(eq,l)=u(ix,iy,iz,eq,e)
          enddo
@@ -150,32 +153,16 @@ C> Hartmann & Houston (2006). A poor default.
          wp(iuz,l)= uz   ! Dirichlet, userbc
          wp(iph,l)  = phi  ! Dirichlet, userbc.
          wp(irho,l)=rho  ! Dirichlet, userbc
+         wp(ipr,l)  = pres ! Inflow state, userbc, depends on mach
+         wp(isnd,l) = asnd ! Inflow state, userbc. depends on mach
+         wp(ithm,l) = temp ! Inflow state, userbc. depends on mach
          up(1,l)= rho*phi
          up(2,l)= rho*ux*phi
          up(3,l)= rho*uy*phi
          up(4,l)= rho*uz*phi
 
-         snx  = unx(l,1,f,e)
-         sny  = uny(l,1,f,e)
-         snz  = unz(l,1,f,e)
-         mach = abs(ux*snx+uy*sny+uz*snz)/asnd ! better be uz=0.0 in 2D
-
-         if (mach.lt.1.0) then
-
-            wp(ipr,l)  = wm(ipr,l)
-            wp(isnd,l) = asnd ! userbc should have set this to a(p-,rho+)
-            wp(ithm,l) = temp ! userbc should have set this to T(p-,rho+)
-
-         else ! supersonic inflow
-
-            wp(ipr,l)  = pres ! Inflow state, userbc
-            wp(isnd,l) = asnd ! Inflow state, userbc
-            wp(ithm,l) = temp ! Inflow state, userbc
-
-         endif
 
 ! userbc should have set e_internal to Dirichlet state (supersonic) or p-/(gm-1)
-! here and only here is e_internal density-weighted.
          up(5,l) = rho*e_internal+0.5*rho*(ux**2+uy**2+uz**2)
          up(5,l) = up(5,l)*phi
 

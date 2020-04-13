@@ -84,8 +84,10 @@ c---------------------------------------------------------------------
       
       real              rho,phi,pres,cv,e_internal
      $                 ,t0in,p0in,asnd,rgas,cp,mu,lambda,molarmass
+     >                 ,snx,sny,snz
       common /nekuscmt/ rho,phi,pres,cv,e_internal
      $                 ,t0in,p0in,asnd,rgas,cp,mu,lambda,molarmass
+     >                 ,snx,sny,snz
 ! let kond=udiff
 ! VTRANS indices
       integer jden,jcp,jcv
