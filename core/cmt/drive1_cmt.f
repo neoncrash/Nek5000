@@ -21,7 +21,7 @@ c     Solve the Euler equations
       include 'CMTDATA'
       include 'CMTTIMERS'
       
-      integer e,eq
+      integer e,f,eq
       character*32 dumchars
       external AVeverywhere
 
@@ -296,11 +296,11 @@ C> res1+=\f$\oint \mathbf{H}^{c\ast}\cdot\mathbf{n}dA\f$ on face points
          ieq=(eq-1)*ndg_face+iflx
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
-      dumchars='after_inviscid'
+!      dumchars='after_inviscid'
 !      call dumpresidue(dumchars,999)
 !     call gtu_wrapper(fatface) ! for penalty methods. not yet
 
-
+      call fillujumpu !add comment from jasons code  
 C> res1+=\f$\int \left(\nabla v\right) \cdot \left(\mathbf{H}^c+\mathbf{H}^d\right)dV\f$ 
 C> for each equation (inner), one element at a time (outer)
       do e=1,nelt
@@ -337,7 +337,7 @@ C> for each equation (inner), one element at a time (outer)
          enddo
       enddo
  
-      dumchars='after_elm'
+!      dumchars='after_elm'
 !      call dumpresidue(dumchars,999)
 
 !      if (1.eq.2) then
@@ -351,14 +351,15 @@ C> res1+=\f$\int_{\Gamma} \{\{\mathbf{A}\nabla \mathbf{U}\}\} \cdot \left[v\righ
          call surface_integral_full(res1(1,1,1,1,eq),flux(ieq))
       enddo
 !      endif
-!      dumchars='end_of_rhs' !$add below lines 266-269
+!      dumchars='after_br1' !$add below lines 266-269
+!      call dumpresidue(dumchars,999)  
 ! one last
       if (lxd.eq.lx1) then  
       do eq=1,toteq
          call col2(res1(1,1,1,1,eq),jacmi,nelt*lx1*ly1*lz1)
       enddo
       endif  
-      dumchars='after_jacmi'  
+!      dumchars='after_jacmi'  
 !      call dumpresidue(dumchars,999)
 !      call exitt
       return
